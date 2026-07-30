@@ -1,0 +1,43 @@
+"""Pydantic schemas for interview endpoints."""
+
+from __future__ import annotations
+
+import uuid
+
+from pydantic import BaseModel, Field
+
+
+class InterviewQuestionRequest(BaseModel):
+    """Request body for `POST /interview/questions`."""
+
+    candidate_id: uuid.UUID = Field(..., description="Candidate to generate a question for.")
+    job_description: str = Field(..., min_length=1, description="Job description to ground the question in.")
+    conversation_history: list[str] = Field(
+        default_factory=list,
+        description="Prior Q&A turns, oldest first, used to generate an adaptive follow-up.",
+    )
+
+
+class InterviewQuestionResponse(BaseModel):
+    """Response body for `POST /interview/questions`."""
+
+    question: str
+    focus_area: str
+    is_follow_up: bool
+
+
+class InterviewEvaluateRequest(BaseModel):
+    """Request body for `POST /interview/evaluate`."""
+
+    candidate_id: uuid.UUID = Field(..., description="Candidate whose interview is being evaluated.")
+    questions_and_answers: list[str] = Field(
+        ..., min_length=1, description="Full Q&A transcript, formatted as strings."
+    )
+
+
+class InterviewEvaluateResponse(BaseModel):
+    """Response body for `POST /interview/evaluate`."""
+
+    interview_id: uuid.UUID
+    overall_assessment: str
+    passed: bool

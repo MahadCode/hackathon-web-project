@@ -16,6 +16,7 @@ class UserRole(str, Enum):
     HR_MANAGER = "HR_MANAGER"
     RECRUITER = "RECRUITER"
     INTERVIEWER = "INTERVIEWER"
+    CANDIDATE = "CANDIDATE"
 
 
 class TokenType(str, Enum):
@@ -48,6 +49,29 @@ class CandidateStatus(str, Enum):
     NOT_HIRED = "NOT_HIRED"
 
 
+class InterviewType(str, Enum):
+    """How a scheduled interview is conducted."""
+
+    PHONE = "PHONE"
+    VIDEO = "VIDEO"
+    ONSITE = "ONSITE"
+
+
+class HiringDecision(str, Enum):
+    """Final human decision recorded after an interview."""
+
+    HIRED = "HIRED"
+    NOT_HIRED = "NOT_HIRED"
+
+
+class QuestionDifficulty(str, Enum):
+    """Difficulty label stored on a generated interview question."""
+
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+
+
 HR_ROLES: frozenset[UserRole] = frozenset({UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.RECRUITER})
 """Roles permitted to create and manage job postings."""
 
@@ -55,3 +79,8 @@ INTERVIEW_ROLES: frozenset[UserRole] = frozenset(
     {UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.INTERVIEWER, UserRole.RECRUITER}
 )
 """Roles permitted to run and evaluate interviews."""
+
+STAFF_ROLES: frozenset[UserRole] = frozenset(
+    {UserRole.ADMIN, UserRole.HR_MANAGER, UserRole.RECRUITER, UserRole.INTERVIEWER}
+)
+"""Every hiring-staff role. Candidates are excluded from recruiter-only data."""

@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api/client";
-import type { Job, JobStatus } from "@/types/domain";
+import type { ExtractedRequirements, Job, JobStatus } from "@/types/domain";
 
 export interface JobCreatePayload {
   title: string;
@@ -10,10 +10,14 @@ export interface JobCreatePayload {
 
 export type JobUpdatePayload = Partial<JobCreatePayload>;
 
-/** Service layer for job posting endpoints (`/jobs/*`). */
 export const jobsApi = {
   async list(params?: { status?: JobStatus; offset?: number; limit?: number }): Promise<Job[]> {
     const { data } = await apiClient.get<Job[]>("/jobs", { params });
+    return data;
+  },
+
+  async listOpen(params?: { offset?: number; limit?: number }): Promise<Job[]> {
+    const { data } = await apiClient.get<Job[]>("/jobs/open", { params });
     return data;
   },
 
@@ -34,5 +38,13 @@ export const jobsApi = {
 
   async remove(jobId: string): Promise<void> {
     await apiClient.delete(`/jobs/${jobId}`);
+  },
+
+  async extractRequirements(
+    jobId: string,
+    apply: boolean,
+  ): Promise<ExtractedRequirements & { applied: boolean }> {
+    const { data } = await apiClient.post(`/jobs/${jobId}/extract-requirements`, { apply });
+    return data;
   },
 };

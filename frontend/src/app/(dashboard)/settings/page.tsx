@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/hooks/use-auth";
 import { authApi } from "@/lib/api/auth";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { getInitials } from "@/lib/utils/cn";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ProfileFormValues {
   full_name: string;
@@ -28,6 +29,7 @@ interface PasswordFormValues {
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [profileSubmitting, setProfileSubmitting] = React.useState(false);
   const [passwordSubmitting, setPasswordSubmitting] = React.useState(false);
 
@@ -40,6 +42,7 @@ export default function SettingsPage() {
     setProfileSubmitting(true);
     try {
       await authApi.updateProfile(values);
+      await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       toast.success("Profile updated.");
     } catch (error) {
       toast.error(getApiErrorMessage(error));
@@ -64,7 +67,8 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-heading">Settings</h1>
+        <p className="label-mono text-muted-foreground">Account</p>
+        <h1 className="mt-1 text-3xl font-normal tracking-tight text-heading">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">Manage your profile, security, and preferences.</p>
       </div>
 

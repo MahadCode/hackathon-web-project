@@ -4,7 +4,7 @@ import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,7 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useJob, useDeleteJob } from "@/lib/hooks/use-jobs";
+import { useJob, useDeleteJob, useUpdateJob } from "@/lib/hooks/use-jobs";
 import { useCandidatesForJob } from "@/lib/hooks/use-candidates";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { formatDate, getInitials } from "@/lib/utils/cn";
@@ -34,6 +34,7 @@ export default function JobDetailPage() {
   const { data: job, isLoading } = useJob(params.id);
   const { data: candidates, isLoading: candidatesLoading } = useCandidatesForJob(params.id);
   const deleteJob = useDeleteJob();
+  const updateJob = useUpdateJob(params.id);
 
   async function handleDelete() {
     try {
@@ -69,6 +70,27 @@ export default function JobDetailPage() {
           <p className="mt-1 text-sm text-muted-foreground">Posted {formatDate(job.created_at)}</p>
         </div>
 
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/jobs/${job.id}/edit`}>
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </Link>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            isLoading={updateJob.isPending}
+            onClick={async () => {
+              try {
+                await updateJob.mutateAsync({ status: job.status === "OPEN" ? "CLOSED" : "OPEN" });
+                toast.success(job.status === "OPEN" ? "Job closed." : "Job reopened.");
+              } catch (error) {
+                toast.error(getApiErrorMessage(error));
+              }
+            }}
+          >
+            {job.status === "OPEN" ? "Close" : "Reopen"}
+          </Button>
         <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
           <DialogTrigger asChild>
             <Button variant="destructive" size="sm">
@@ -93,6 +115,7 @@ export default function JobDetailPage() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -117,6 +140,19 @@ export default function JobDetailPage() {
               </p>
             </CardContent>
           </Card>
+          {job.extracted_requirements ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Extracted skills</CardTitle>
+                <CardDescription>Saved from the last extract-requirements run.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p>Required: {(job.extracted_requirements.required_skills ?? []).join(", ") || "—"}</p>
+                <p>Preferred: {(job.extracted_requirements.preferred_skills ?? []).join(", ") || "—"}</p>
+                <p>Experience: {job.extracted_requirements.experience || "—"}</p>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
 
         <Card>

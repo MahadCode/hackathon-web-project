@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from app.database.types import GUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -25,7 +25,7 @@ class Resume(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "resumes"
 
     candidate_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False
+        GUID, ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False
     )
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(512), nullable=False)

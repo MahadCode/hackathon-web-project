@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, status
 
 from app.core.dependencies import get_interview_service, require_roles
@@ -11,6 +13,9 @@ from app.schemas.interview import (
     InterviewEvaluateResponse,
     InterviewQuestionRequest,
     InterviewQuestionResponse,
+    QuestionSetRead,
+    QuestionUpdate,
+    StoredQuestionRead,
 )
 from app.services.interview_service import InterviewService
 
@@ -80,3 +85,51 @@ async def evaluate_interview(
         overall_assessment=interview.overall_assessment or "",
         passed=bool(interview.passed),
     )
+
+
+@router.put(
+    "/questions/{question_id}",
+    response_model=StoredQuestionRead,
+    summary="Edit a saved interview question",
+    responses={404: {"description": "Question not found."}, 422: {"description": "No fields to update."}},
+)
+async def update_question(
+    question_id: uuid.UUID,
+    payload: QuestionUpdate,
+    interview_service: InterviewService = Depends(get_interview_service),
+) -> StoredQuestionRead:
+    """Edit one question in the saved set.
+
+    Args:
+        question_id: The question id.
+        payload: Fields to change.
+        interview_service: Injected `InterviewService`.
+
+    Returns:
+        The edited question.
+    """
+
+    return await interview_service.update_question(question_id, payload)
+
+
+@router.delete(
+    "/questions/{question_id}",
+    response_model=QuestionSetRead,
+    summary="Remove a saved interview question",
+    responses={404: {"description": "Question not found."}},
+)
+async def delete_question(
+    question_id: uuid.UUID,
+    interview_service: InterviewService = Depends(get_interview_service),
+) -> QuestionSetRead:
+    """Remove one question from the saved set.
+
+    Args:
+        question_id: The question id.
+        interview_service: Injected `InterviewService`.
+
+    Returns:
+        The question set that remains.
+    """
+
+    return await interview_service.delete_question(question_id)

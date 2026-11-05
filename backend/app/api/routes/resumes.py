@@ -4,16 +4,51 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 
-from app.core.dependencies import get_resume_service, require_hr
+from app.core.dependencies import get_resume_service, require_candidate, require_hr
 from app.exceptions.errors import ValidationAppError
-from app.schemas.resume import ResumeUploadResponse
+from app.models.user import User
+from app.schemas.resume import ResumeSelfRead, ResumeUploadResponse
 from app.services.resume_service import ResumeService
 
-router = APIRouter(prefix="/resumes", tags=["Resumes"], dependencies=[Depends(require_hr())])
+router = APIRouter(prefix="/resumes", tags=["Resumes"])
 
 _MAX_RESUME_BYTES = 10 * 1024 * 1024
+
+
+@router.get(
+    "/me",
+    response_model=ResumeSelfRead,
+    summary="Get my parsed resume",
+    description="Returns the authenticated candidate's parsed resume. Pass candidate_id to "
+    "pick a specific application; otherwise the latest application is used.",
+    responses={404: {"description": "No resume found for this account."}},
+)
+async def get_my_resume(
+    candidate_id: uuid.UUID | None = Query(default=None),
+    current_user: User = Depends(require_candidate()),
+    resume_service: ResumeService = Depends(get_resume_service),
+) -> ResumeSelfRead:
+    """Return a parsed resume owned by the current candidate.
+
+    Args:
+        candidate_id: Optional application id.
+        current_user: The authenticated candidate.
+        resume_service: Injected `ResumeService`.
+
+    Returns:
+        The parsed resume without recruiter scores or notes.
+    """
+
+    resume, candidate = await resume_service.get_resume_for_owner(current_user.id, candidate_id)
+    return ResumeSelfRead(
+        resume_id=resume.id,
+        candidate_id=candidate.id,
+        job_id=candidate.job_id,
+        original_filename=resume.original_filename,
+        parsed_profile=candidate.parsed_profile,
+    )
 
 
 @router.post(
@@ -23,6 +58,7 @@ _MAX_RESUME_BYTES = 10 * 1024 * 1024
     summary="Upload and parse a resume",
     description="Accepts a job id and a PDF resume, extracts its text, invokes the Resume "
     "Parser Agent, and returns the structured parsed profile. HR roles only.",
+    dependencies=[Depends(require_hr())],
     responses={422: {"description": "File is not a valid PDF, or no extractable text was found."}},
 )
 async def upload_resume(

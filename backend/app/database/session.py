@@ -10,16 +10,23 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
 from app.core.config import get_settings
 
 _settings = get_settings()
+_is_sqlite = _settings.database_url.startswith("sqlite")
 
-engine: AsyncEngine = create_async_engine(
-    _settings.database_url,
-    echo=not _settings.is_production,
-    pool_pre_ping=True,
-)
+_engine_kwargs: dict = {
+    "echo": not _settings.is_production,
+    "pool_pre_ping": not _is_sqlite,
+}
+if _is_sqlite:
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+    if ":memory:" in _settings.database_url:
+        _engine_kwargs["poolclass"] = StaticPool
+
+engine: AsyncEngine = create_async_engine(_settings.database_url, **_engine_kwargs)
 
 AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
     bind=engine,

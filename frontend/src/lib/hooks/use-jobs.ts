@@ -11,6 +11,13 @@ export function useJobs(status?: JobStatus) {
   });
 }
 
+export function useOpenJobs() {
+  return useQuery({
+    queryKey: ["jobs", "open"],
+    queryFn: () => jobsApi.listOpen(),
+  });
+}
+
 export function useJob(jobId: string) {
   return useQuery({
     queryKey: ["jobs", jobId],
@@ -43,5 +50,15 @@ export function useDeleteJob() {
   return useMutation({
     mutationFn: (jobId: string) => jobsApi.remove(jobId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
+  });
+}
+
+export function useExtractRequirements(jobId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (apply: boolean) => jobsApi.extractRequirements(jobId, apply),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs", jobId] });
+    },
   });
 }

@@ -5,7 +5,13 @@ import type { ApiErrorBody, TokenPair } from "@/types/domain";
  * Base URL for the FastAPI backend. Never hardcoded — read from the
  * environment so the same build can target dev/staging/prod backends.
  */
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
+const AUTH_CHANGED_EVENT = "talent-lens-auth";
+
+function notifyAuthChanged() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+}
 
 const ACCESS_TOKEN_KEY = "talent_lens_access_token";
 const REFRESH_TOKEN_KEY = "talent_lens_refresh_token";
@@ -19,11 +25,13 @@ export const tokenStorage = {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access_token);
     window.localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh_token);
+    notifyAuthChanged();
   },
   clear: (): void => {
     if (typeof window === "undefined") return;
     window.localStorage.removeItem(ACCESS_TOKEN_KEY);
     window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+    notifyAuthChanged();
   },
 };
 
@@ -83,7 +91,19 @@ apiClient.interceptors.response.use(
 /** Extract a user-facing error message from any API error, with a safe fallback. */
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError<ApiErrorBody>(error)) {
-    return error.response?.data?.message ?? "Something went wrong. Please try again.";
+    if (!error.response) {
+      return "Can't reach the server. Start the backend and try again.";
+    }
+    const body = error.response.data;
+    const details = body?.details as { errors?: Array<{ msg?: string; loc?: unknown[] }> } | undefined;
+    const fieldErrors = details?.errors
+      ?.map((item) => item.msg)
+      .filter(Boolean)
+      .join(" ");
+    if (fieldErrors) return fieldErrors;
+    return body?.message ?? "Something went wrong. Please try again.";
   }
   return "Something went wrong. Please try again.";
 }
+
+export { AUTH_CHANGED_EVENT };

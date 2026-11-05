@@ -174,6 +174,7 @@ class WorkflowService:
         )
         await self._score_repo.add(score)
 
+        candidate.matching_result = final_state["matching_result"].model_dump()
         candidate.match_percentage = final_state["matching_result"].match_percentage
         candidate.status = _STATUS_BY_DECISION.get(decision.decision.value, candidate.status)
 

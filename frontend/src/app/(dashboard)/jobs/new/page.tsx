@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Sparkles, X } from "lucide-react";
+import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,16 +54,10 @@ export default function NewJobPage() {
     setSkills(skills.filter((s) => s !== skill));
   }
 
-  function handleAiAssist() {
-    // NOTE: the backend does not yet expose a job-description-suggestion
-    // endpoint. This is a UI affordance ready to wire up once one exists.
-    toast.info("AI suggestions require a job-description endpoint — coming soon.");
-  }
-
   async function onSubmit(values: FormValues) {
     try {
-      const job = await createJob.mutateAsync({ ...values, status: "DRAFT" });
-      toast.success("Job created successfully.");
+      const job = await createJob.mutateAsync({ ...values, status: "OPEN" });
+      toast.success("Job published.");
       router.push(`/jobs/${job.id}`);
     } catch (error) {
       toast.error(getApiErrorMessage(error));
@@ -73,9 +67,10 @@ export default function NewJobPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-heading">Create a job</h1>
+        <p className="label-mono text-muted-foreground">Publish</p>
+        <h1 className="mt-1 text-3xl font-normal tracking-tight text-heading">Create a job</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Define the role — Talent Lens will use this to match and score candidates.
+          Define the role. Talent Lens matches and scores applicants against this text.
         </p>
       </div>
 
@@ -95,9 +90,7 @@ export default function NewJobPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="description">Description</Label>
-                <Button type="button" variant="ghost" size="sm" onClick={handleAiAssist}>
-                  <Sparkles className="h-3.5 w-3.5" /> AI Suggestions
-                </Button>
+                <span className="label-mono text-muted-foreground">Free text</span>
               </div>
               <textarea
                 id="description"
@@ -164,7 +157,7 @@ export default function NewJobPage() {
                 Cancel
               </Button>
               <Button type="submit" isLoading={createJob.isPending}>
-                Create job
+                Publish job
               </Button>
             </div>
           </form>

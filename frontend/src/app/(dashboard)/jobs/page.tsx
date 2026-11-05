@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { Briefcase, Plus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,8 +12,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useJobs } from "@/lib/hooks/use-jobs";
+import { useCandidatesForJob } from "@/lib/hooks/use-candidates";
 import { formatDate } from "@/lib/utils/cn";
 import type { JobStatus } from "@/types/domain";
+
+function ApplicantCount({ jobId }: { jobId: string }) {
+  const { data } = useCandidatesForJob(jobId);
+  return <p className="label-mono text-muted-foreground">{data?.length ?? 0} applicants</p>;
+}
 
 const STATUS_VARIANT: Record<JobStatus, "outline" | "success" | "secondary" | "warning"> = {
   DRAFT: "outline",
@@ -35,8 +40,9 @@ export default function JobsPage() {
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-heading">Jobs</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Manage open roles and track applicant flow.</p>
+          <p className="label-mono text-muted-foreground">Roles</p>
+          <h1 className="mt-1 text-3xl font-normal tracking-tight text-heading">Jobs</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Publish vacancies and track applicant flow.</p>
         </div>
         <Button asChild size="lg">
           <Link href="/jobs/new">
@@ -85,15 +91,9 @@ export default function JobsPage() {
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredJobs.map((job, i) => (
-            <motion.div
-              key={job.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: i * 0.04 }}
-              whileHover={{ y: -3 }}
-            >
-              <Link href={`/jobs/${job.id}`}>
+          {filteredJobs.map((job) => (
+            <div key={job.id}>
+              <Link href={`/jobs/${job.id}`} prefetch>
                 <Card className="h-full transition-shadow hover:shadow-soft">
                   <CardContent className="flex h-full flex-col gap-3 p-5">
                     <div className="flex items-start justify-between gap-2">
@@ -101,11 +101,14 @@ export default function JobsPage() {
                       <Badge variant={STATUS_VARIANT[job.status]}>{job.status}</Badge>
                     </div>
                     <p className="line-clamp-3 flex-1 text-sm text-muted-foreground">{job.description}</p>
-                    <p className="text-xs text-muted-foreground">Posted {formatDate(job.created_at)}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-muted-foreground">Posted {formatDate(job.created_at)}</p>
+                      <ApplicantCount jobId={job.id} />
+                    </div>
                   </CardContent>
                 </Card>
               </Link>
-            </motion.div>
+            </div>
           ))}
         </div>
       )}

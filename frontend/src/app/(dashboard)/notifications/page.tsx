@@ -72,7 +72,8 @@ export default function NotificationsPage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-heading">Notifications</h1>
+          <p className="label-mono text-muted-foreground">Inbox</p>
+          <h1 className="mt-1 text-3xl font-normal tracking-tight text-heading">Notifications</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}
           </p>

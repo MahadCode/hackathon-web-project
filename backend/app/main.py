@@ -12,11 +12,13 @@ from fastapi import FastAPI
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
+from app.database.base import Base
 from app.database.session import engine
 from app.exceptions.handlers import register_exception_handlers
 from app.middleware.cors import add_cors_middleware
 from app.middleware.logging_middleware import RequestLoggingMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
+import app.models  # noqa: F401 — register ORM tables on Base.metadata
 
 configure_logging()
 logger = get_logger(__name__, component="startup")
@@ -34,6 +36,11 @@ async def lifespan(app: FastAPI):
     """
 
     logger.info("Application starting up.")
+    settings = get_settings()
+    if settings.database_url.startswith("sqlite"):
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        logger.info("SQLite schema is ready.")
     yield
     logger.info("Application shutting down.")
     await engine.dispose()

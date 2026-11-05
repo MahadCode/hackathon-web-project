@@ -59,9 +59,10 @@ export default function ResumeScreeningPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-heading">Resume Screening</h1>
+        <p className="label-mono text-muted-foreground">Screening</p>
+        <h1 className="mt-1 text-3xl font-normal tracking-tight text-heading">Resume screening</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Upload a resume and let the AI agents parse, match, and score it against a job.
+          Upload a resume and let the agents parse, match, and score it against a job.
         </p>
       </div>
 

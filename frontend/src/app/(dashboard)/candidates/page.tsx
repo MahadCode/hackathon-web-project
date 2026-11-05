@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { Users } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,8 +31,9 @@ export default function CandidatesPage() {
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-heading">Candidates</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Browse AI-evaluated applicants by job.</p>
+          <p className="label-mono text-muted-foreground">Pipeline</p>
+          <h1 className="mt-1 text-3xl font-normal tracking-tight text-heading">Candidates</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Browse scored applicants by job.</p>
         </div>
 
         {jobsLoading ? (
@@ -69,15 +69,11 @@ export default function CandidatesPage() {
       ) : (
         <Card>
           <CardContent className="divide-y divide-border p-0">
-            {candidates.map((candidate, i) => (
-              <motion.div
-                key={candidate.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.25, delay: i * 0.03 }}
-              >
+            {candidates.map((candidate) => (
+              <div key={candidate.id}>
                 <Link
                   href={`/candidates/${candidate.id}`}
+                  prefetch
                   className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted"
                 >
                   <Avatar className="h-10 w-10">
@@ -96,7 +92,7 @@ export default function CandidatesPage() {
                   )}
                   <CandidateStatusBadge status={candidate.status} />
                 </Link>
-              </motion.div>
+              </div>
             ))}
           </CardContent>
         </Card>

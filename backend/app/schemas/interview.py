@@ -41,3 +41,31 @@ class InterviewEvaluateResponse(BaseModel):
     interview_id: uuid.UUID
     overall_assessment: str
     passed: bool
+
+
+class StoredQuestionRead(BaseModel):
+    """One saved interview question."""
+
+    id: uuid.UUID
+    question: str
+    focus_area: str
+    difficulty: str
+    guideline: str
+    is_follow_up: bool = False
+
+
+class QuestionSetRead(BaseModel):
+    """A candidate's saved interview question set."""
+
+    candidate_id: uuid.UUID
+    interview_id: uuid.UUID | None = None
+    questions: list[StoredQuestionRead] = Field(default_factory=list)
+
+
+class QuestionUpdate(BaseModel):
+    """Request body for `PUT /interview/questions/{question_id}`."""
+
+    question: str | None = Field(default=None, min_length=1)
+    focus_area: str | None = Field(default=None, min_length=1)
+    difficulty: str | None = None
+    guideline: str | None = Field(default=None, min_length=1)

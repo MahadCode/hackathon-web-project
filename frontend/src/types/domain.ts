@@ -1,10 +1,8 @@
 /**
- * Domain types mirrored from the FastAPI backend's Pydantic schemas
- * (see backend/app/schemas/*.py). Keeping these hand-in-sync avoids a
- * runtime schema-generation dependency while the API surface is stable.
+ * Domain types mirrored from the FastAPI backend's Pydantic schemas.
  */
 
-export type UserRole = "ADMIN" | "HR_MANAGER" | "RECRUITER" | "INTERVIEWER";
+export type UserRole = "ADMIN" | "HR_MANAGER" | "RECRUITER" | "INTERVIEWER" | "CANDIDATE";
 
 export type JobStatus = "DRAFT" | "OPEN" | "CLOSED" | "ARCHIVED";
 
@@ -17,6 +15,10 @@ export type CandidateStatus =
   | "INTERVIEWING"
   | "HIRED"
   | "NOT_HIRED";
+
+export type InterviewType = "PHONE" | "VIDEO" | "ONSITE";
+
+export type HiringDecision = "HIRED" | "NOT_HIRED";
 
 export interface User {
   id: string;
@@ -37,11 +39,19 @@ export interface TokenPair {
   token_type: string;
 }
 
+export interface ExtractedRequirements {
+  required_skills?: string[];
+  preferred_skills?: string[];
+  experience?: string;
+  qualifications?: string[];
+}
+
 export interface Job {
   id: string;
   title: string;
   description: string;
   requirements: string;
+  extracted_requirements: ExtractedRequirements | null;
   status: JobStatus;
   created_by_id: string;
   created_at: string;
@@ -70,8 +80,53 @@ export interface Candidate {
   status: CandidateStatus;
   parsed_profile: ParsedCandidateProfile | null;
   match_percentage: number | null;
+  score_overridden?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface CandidateApplication {
+  id: string;
+  job_id: string;
+  job_title: string | null;
+  status: CandidateStatus;
+  parsed_profile: ParsedCandidateProfile | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Assessment {
+  candidate_id: string;
+  total_score: number;
+  skills_score: number;
+  experience_score: number;
+  projects_score: number;
+  education_score: number;
+  certifications_score: number;
+  reasoning: string;
+  match_percentage: number | null;
+  missing_skills: string[];
+  extra_skills: string[];
+  experience_comparison: string | null;
+  explanation: string | null;
+  score_overridden: boolean;
+}
+
+export interface CandidateNote {
+  id: string;
+  candidate_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+}
+
+export interface StatusEvent {
+  id: string;
+  candidate_id: string;
+  actor_id: string;
+  from_status: CandidateStatus;
+  to_status: CandidateStatus;
+  created_at: string;
 }
 
 export interface MatchingResult {
@@ -127,6 +182,64 @@ export interface InterviewEvaluateResponse {
   interview_id: string;
   overall_assessment: string;
   passed: boolean;
+}
+
+export interface StoredQuestion {
+  id: string;
+  question: string;
+  focus_area: string;
+  difficulty: string;
+  guideline: string;
+  is_follow_up: boolean;
+}
+
+export interface QuestionSet {
+  candidate_id: string;
+  interview_id: string | null;
+  questions: StoredQuestion[];
+}
+
+export interface ScheduledInterview {
+  id: string;
+  candidate_id: string;
+  scheduled_at: string;
+  interviewer_name: string;
+  interview_type: InterviewType;
+  notes: string | null;
+  feedback: { ratings?: Record<string, number>; comments?: string } | null;
+  decision: HiringDecision | null;
+  conflict: boolean;
+  conflicting_interview_id: string | null;
+  created_at: string;
+}
+
+export interface AnalyticsSummary {
+  active_jobs: number;
+  applications: number;
+  shortlisted: number;
+  pending_reviews: number;
+  upcoming_interviews: number;
+}
+
+export interface SkillGapCount {
+  skill: string;
+  count: number;
+}
+
+export interface JobAnalytics {
+  job_id: string;
+  counts_by_status: Record<string, number>;
+  application_to_shortlist_rate: number;
+  average_processing_hours: number | null;
+  common_skill_gaps: SkillGapCount[];
+}
+
+export interface ResumeSelf {
+  resume_id: string;
+  candidate_id: string;
+  job_id: string;
+  original_filename: string;
+  parsed_profile: ParsedCandidateProfile | null;
 }
 
 export interface PaginatedResponse<T> {

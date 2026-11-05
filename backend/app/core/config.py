@@ -43,7 +43,10 @@ class Settings(BaseSettings):
     environment: str = Field(default="development", alias="ENVIRONMENT")
     api_v1_prefix: str = Field(default="/api/v1")
 
-    database_url: str = Field(..., alias="DATABASE_URL")
+    database_url: str = Field(
+        default="sqlite+aiosqlite:///./hiring_ai.sqlite",
+        alias="DATABASE_URL",
+    )
 
     jwt_secret_key: str = Field(..., alias="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
@@ -53,7 +56,12 @@ class Settings(BaseSettings):
         default=30, alias="PASSWORD_RESET_TOKEN_EXPIRE_MINUTES"
     )
 
-    cors_allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_allow_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
+    )
 
     upload_dir: str = Field(default="./uploads", alias="UPLOAD_DIR")
     max_upload_size_mb: int = Field(default=10, alias="MAX_UPLOAD_SIZE_MB")

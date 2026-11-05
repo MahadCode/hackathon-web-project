@@ -13,9 +13,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30_000,
+            staleTime: 60_000,
+            gcTime: 5 * 60_000,
             retry: 1,
             refetchOnWindowFocus: false,
+            refetchOnReconnect: false,
           },
         },
       }),
@@ -23,7 +25,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
         <AuthProvider>
           {children}
           <Toaster />

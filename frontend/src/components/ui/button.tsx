@@ -6,23 +6,23 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default:
-          "bg-primary text-primary-foreground shadow-soft hover:opacity-90 active:scale-[0.98]",
-        secondary: "bg-muted text-heading hover:bg-border/60 active:scale-[0.98]",
-        outline:
-          "border border-border bg-transparent text-heading hover:bg-muted active:scale-[0.98]",
-        ghost: "bg-transparent text-heading hover:bg-muted active:scale-[0.98]",
-        destructive: "bg-error text-white shadow-soft hover:opacity-90 active:scale-[0.98]",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "bg-heading text-background hover:opacity-90",
+        secondary: "bg-muted text-heading hover:bg-muted/80",
+        outline: "border border-heading/20 bg-transparent text-heading hover:bg-heading/5",
+        ghost: "bg-transparent text-heading hover:bg-heading/5",
+        destructive: "border border-error text-error hover:bg-error/10",
+        link: "text-heading underline-offset-4 hover:underline",
+        brand:
+          "border border-heading/20 bg-transparent font-mono text-[11px] uppercase tracking-[0.06em] hover:bg-heading/5",
       },
       size: {
         default: "h-10 px-4 py-2",
-        sm: "h-8 rounded-lg px-3 text-xs",
-        lg: "h-12 rounded-xl px-6 text-base",
+        sm: "h-8 px-3 text-xs",
+        lg: "h-12 px-6",
         icon: "h-10 w-10",
       },
     },

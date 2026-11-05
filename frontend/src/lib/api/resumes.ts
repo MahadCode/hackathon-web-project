@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api/client";
-import type { ParsedCandidateProfile } from "@/types/domain";
+import type { ParsedCandidateProfile, ResumeSelf } from "@/types/domain";
 
 export interface ResumeUploadResponse {
   resume_id: string;
@@ -7,7 +7,6 @@ export interface ResumeUploadResponse {
   parsed_profile: ParsedCandidateProfile;
 }
 
-/** Service layer for resume upload/parsing (`/resumes/*`). */
 export const resumesApi = {
   async upload(params: { jobId: string; candidateId?: string; file: File }): Promise<ResumeUploadResponse> {
     const formData = new FormData();
@@ -17,6 +16,13 @@ export const resumesApi = {
 
     const { data } = await apiClient.post<ResumeUploadResponse>("/resumes/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  },
+
+  async me(candidateId?: string): Promise<ResumeSelf> {
+    const { data } = await apiClient.get<ResumeSelf>("/resumes/me", {
+      params: candidateId ? { candidate_id: candidateId } : undefined,
     });
     return data;
   },

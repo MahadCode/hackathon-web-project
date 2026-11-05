@@ -19,6 +19,22 @@ class JobCreate(BaseModel):
     status: JobStatus = Field(default=JobStatus.DRAFT)
 
 
+class ExtractRequirementsRequest(BaseModel):
+    """Request body for `POST /jobs/{id}/extract-requirements`."""
+
+    apply: bool = False
+
+
+class ExtractRequirementsResponse(BaseModel):
+    """Structured requirements extracted from a job posting."""
+
+    required_skills: list[str] = Field(default_factory=list)
+    preferred_skills: list[str] = Field(default_factory=list)
+    experience: str = ""
+    qualifications: list[str] = Field(default_factory=list)
+    applied: bool = False
+
+
 class JobUpdate(BaseModel):
     """Request body for `PUT /jobs/{id}`. All fields optional (partial update)."""
 
@@ -37,6 +53,7 @@ class JobRead(BaseModel):
     title: str
     description: str
     requirements: str
+    extracted_requirements: dict | None = None
     status: JobStatus
     created_by_id: uuid.UUID
     created_at: datetime

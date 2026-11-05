@@ -13,7 +13,7 @@ from app.database.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
-    """A registered user of the hiring platform (staff, not a candidate).
+    """A registered user of the hiring platform (staff or candidate).
 
     Attributes:
         full_name: The user's display name.
@@ -48,3 +48,4 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    applications: Mapped[list["Candidate"]] = relationship(back_populates="user")

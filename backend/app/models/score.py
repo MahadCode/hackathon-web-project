@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import Float, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID
+from app.database.types import GUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -28,7 +28,7 @@ class Score(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "scores"
 
     candidate_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False
+        GUID, ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False
     )
     skills_score: Mapped[float] = mapped_column(Float, nullable=False)
     experience_score: Mapped[float] = mapped_column(Float, nullable=False)

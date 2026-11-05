@@ -113,6 +113,16 @@ def require_recruiter() -> Callable[[User], User]:
     return require_roles(UserRole.ADMIN, UserRole.RECRUITER)
 
 
+def require_candidate() -> Callable[[User], User]:
+    """Dependency restricting access to CANDIDATE accounts.
+
+    Returns:
+        A FastAPI dependency callable.
+    """
+
+    return require_roles(UserRole.CANDIDATE)
+
+
 # ---------------------------------------------------------------------------
 # Repository and service factories.
 #
@@ -291,13 +301,72 @@ def get_job_service(job_repo: "JobRepository" = Depends(get_job_repository)) -> 
     return JobService(job_repo=job_repo)
 
 
+def get_candidate_note_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> "CandidateNoteRepository":
+    """Provide a request-scoped `CandidateNoteRepository`.
+
+    Args:
+        session: The request-scoped async DB session.
+
+    Returns:
+        A `CandidateNoteRepository` bound to the current session.
+    """
+
+    from app.repositories.candidate_note_repository import CandidateNoteRepository
+
+    return CandidateNoteRepository(session)
+
+
+def get_candidate_status_event_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> "CandidateStatusEventRepository":
+    """Provide a request-scoped `CandidateStatusEventRepository`.
+
+    Args:
+        session: The request-scoped async DB session.
+
+    Returns:
+        A `CandidateStatusEventRepository` bound to the current session.
+    """
+
+    from app.repositories.candidate_status_event_repository import CandidateStatusEventRepository
+
+    return CandidateStatusEventRepository(session)
+
+
+def get_scheduled_interview_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> "ScheduledInterviewRepository":
+    """Provide a request-scoped `ScheduledInterviewRepository`.
+
+    Args:
+        session: The request-scoped async DB session.
+
+    Returns:
+        A `ScheduledInterviewRepository` bound to the current session.
+    """
+
+    from app.repositories.scheduled_interview_repository import ScheduledInterviewRepository
+
+    return ScheduledInterviewRepository(session)
+
+
 def get_candidate_service(
     candidate_repo: "CandidateRepository" = Depends(get_candidate_repository),
+    score_repo: "ScoreRepository" = Depends(get_score_repository),
+    note_repo: "CandidateNoteRepository" = Depends(get_candidate_note_repository),
+    event_repo: "CandidateStatusEventRepository" = Depends(get_candidate_status_event_repository),
+    job_repo: "JobRepository" = Depends(get_job_repository),
 ) -> "CandidateService":
     """Provide a request-scoped `CandidateService`.
 
     Args:
         candidate_repo: Injected `CandidateRepository`.
+        score_repo: Injected `ScoreRepository`.
+        note_repo: Injected `CandidateNoteRepository`.
+        event_repo: Injected `CandidateStatusEventRepository`.
+        job_repo: Injected `JobRepository`.
 
     Returns:
         A `CandidateService` instance.
@@ -305,18 +374,26 @@ def get_candidate_service(
 
     from app.services.candidate_service import CandidateService
 
-    return CandidateService(candidate_repo=candidate_repo)
+    return CandidateService(
+        candidate_repo=candidate_repo,
+        score_repo=score_repo,
+        note_repo=note_repo,
+        event_repo=event_repo,
+        job_repo=job_repo,
+    )
 
 
 def get_resume_service(
     resume_repo: "ResumeRepository" = Depends(get_resume_repository),
     candidate_repo: "CandidateRepository" = Depends(get_candidate_repository),
+    job_repo: "JobRepository" = Depends(get_job_repository),
 ) -> "ResumeService":
     """Provide a request-scoped `ResumeService`.
 
     Args:
         resume_repo: Injected `ResumeRepository`.
         candidate_repo: Injected `CandidateRepository`.
+        job_repo: Injected `JobRepository`.
 
     Returns:
         A `ResumeService` instance.
@@ -324,7 +401,7 @@ def get_resume_service(
 
     from app.services.resume_service import ResumeService
 
-    return ResumeService(resume_repo=resume_repo, candidate_repo=candidate_repo)
+    return ResumeService(resume_repo=resume_repo, candidate_repo=candidate_repo, job_repo=job_repo)
 
 
 def get_workflow_service(
@@ -361,12 +438,14 @@ def get_workflow_service(
 def get_interview_service(
     candidate_repo: "CandidateRepository" = Depends(get_candidate_repository),
     interview_repo: "InterviewRepository" = Depends(get_interview_repository),
+    job_repo: "JobRepository" = Depends(get_job_repository),
 ) -> "InterviewService":
     """Provide a request-scoped `InterviewService`.
 
     Args:
         candidate_repo: Injected `CandidateRepository`.
         interview_repo: Injected `InterviewRepository`.
+        job_repo: Injected `JobRepository`.
 
     Returns:
         An `InterviewService` instance.
@@ -374,4 +453,57 @@ def get_interview_service(
 
     from app.services.interview_service import InterviewService
 
-    return InterviewService(candidate_repo=candidate_repo, interview_repo=interview_repo)
+    return InterviewService(
+        candidate_repo=candidate_repo, interview_repo=interview_repo, job_repo=job_repo
+    )
+
+
+def get_schedule_service(
+    candidate_repo: "CandidateRepository" = Depends(get_candidate_repository),
+    schedule_repo: "ScheduledInterviewRepository" = Depends(get_scheduled_interview_repository),
+    event_repo: "CandidateStatusEventRepository" = Depends(get_candidate_status_event_repository),
+) -> "ScheduleService":
+    """Provide a request-scoped `ScheduleService`.
+
+    Args:
+        candidate_repo: Injected `CandidateRepository`.
+        schedule_repo: Injected `ScheduledInterviewRepository`.
+        event_repo: Injected `CandidateStatusEventRepository`.
+
+    Returns:
+        A `ScheduleService` instance.
+    """
+
+    from app.services.schedule_service import ScheduleService
+
+    return ScheduleService(
+        candidate_repo=candidate_repo, schedule_repo=schedule_repo, event_repo=event_repo
+    )
+
+
+def get_analytics_service(
+    job_repo: "JobRepository" = Depends(get_job_repository),
+    candidate_repo: "CandidateRepository" = Depends(get_candidate_repository),
+    schedule_repo: "ScheduledInterviewRepository" = Depends(get_scheduled_interview_repository),
+    event_repo: "CandidateStatusEventRepository" = Depends(get_candidate_status_event_repository),
+) -> "AnalyticsService":
+    """Provide a request-scoped `AnalyticsService`.
+
+    Args:
+        job_repo: Injected `JobRepository`.
+        candidate_repo: Injected `CandidateRepository`.
+        schedule_repo: Injected `ScheduledInterviewRepository`.
+        event_repo: Injected `CandidateStatusEventRepository`.
+
+    Returns:
+        An `AnalyticsService` instance.
+    """
+
+    from app.services.analytics_service import AnalyticsService
+
+    return AnalyticsService(
+        job_repo=job_repo,
+        candidate_repo=candidate_repo,
+        schedule_repo=schedule_repo,
+        event_repo=event_repo,
+    )

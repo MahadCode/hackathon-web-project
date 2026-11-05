@@ -35,3 +35,22 @@ class ResumeRepository(BaseRepository[Resume]):
 
         result = await self._session.execute(select(Resume).where(Resume.candidate_id == candidate_id))
         return list(result.scalars().all())
+
+    async def get_latest_for_candidate(self, candidate_id: uuid.UUID) -> Resume | None:
+        """Fetch the most recently uploaded resume for a candidate.
+
+        Args:
+            candidate_id: The candidate to look up.
+
+        Returns:
+            The latest `Resume`, or None if none have been uploaded.
+        """
+
+        query = (
+            select(Resume)
+            .where(Resume.candidate_id == candidate_id)
+            .order_by(Resume.created_at.desc())
+            .limit(1)
+        )
+        result = await self._session.execute(query)
+        return result.scalar_one_or_none()

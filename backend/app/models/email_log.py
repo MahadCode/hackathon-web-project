@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import Enum as SAEnum, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from app.database.types import GUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ai_agents.utils.schemas import EmailType
@@ -29,7 +29,7 @@ class EmailLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "email_logs"
 
     candidate_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False
+        GUID, ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False
     )
     email_type: Mapped[EmailType] = mapped_column(
         SAEnum(EmailType, name="email_log_type", create_type=False), nullable=False

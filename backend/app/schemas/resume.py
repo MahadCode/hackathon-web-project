@@ -8,6 +8,16 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class ResumeSelfRead(BaseModel):
+    """A candidate's own parsed resume. Matcher scores are omitted."""
+
+    resume_id: uuid.UUID
+    candidate_id: uuid.UUID
+    job_id: uuid.UUID
+    original_filename: str
+    parsed_profile: dict[str, Any] | None = None
+
+
 class ResumeUploadResponse(BaseModel):
     """Response returned after a resume is uploaded and parsed.
 

@@ -5,13 +5,15 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { authApi } from "@/lib/api/auth";
-import { tokenStorage } from "@/lib/api/client";
+import { AUTH_CHANGED_EVENT, tokenStorage } from "@/lib/api/client";
+import { homeForRole } from "@/lib/auth/roles";
 import type { User } from "@/types/domain";
 
 interface AuthContextValue {
   user: User | undefined;
   isLoading: boolean;
   isAuthenticated: boolean;
+  homePath: string;
   logout: () => Promise<void>;
 }
 
@@ -23,7 +25,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [hasToken, setHasToken] = React.useState(false);
 
   React.useEffect(() => {
-    setHasToken(Boolean(tokenStorage.getAccessToken()));
+    const sync = () => setHasToken(Boolean(tokenStorage.getAccessToken()));
+    sync();
+    window.addEventListener(AUTH_CHANGED_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
   }, []);
 
   const { data: user, isLoading } = useQuery({
@@ -39,10 +48,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/login");
   }, [queryClient, router]);
 
+  const homePath = homeForRole(user?.role);
+
   const value: AuthContextValue = {
     user,
     isLoading: hasToken && isLoading,
     isAuthenticated: Boolean(user),
+    homePath,
     logout,
   };
 

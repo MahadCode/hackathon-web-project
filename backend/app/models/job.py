@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import Enum as SAEnum, ForeignKey, Index, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from app.database.types import GUID, JSONType
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.constants import JobStatus
@@ -30,13 +30,14 @@ class Job(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     requirements: Mapped[str] = mapped_column(Text, nullable=False)
+    extracted_requirements: Mapped[dict | None] = mapped_column(JSONType, nullable=True)
     status: Mapped[JobStatus] = mapped_column(
         SAEnum(JobStatus, name="job_status", create_type=False),
         nullable=False,
         default=JobStatus.DRAFT,
     )
     created_by_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+        GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
     created_by: Mapped["User"] = relationship(back_populates="jobs")

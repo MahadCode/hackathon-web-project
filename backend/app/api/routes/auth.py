@@ -34,8 +34,8 @@ _ALLOWED_IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user",
-    description="Creates a new staff account (HR/recruiter/interviewer/admin) and returns an "
-    "initial access/refresh token pair.",
+    description="Creates a staff or candidate account and returns an initial access/refresh "
+    "token pair. Pass role=CANDIDATE to register as an applicant.",
     responses={409: {"description": "A user with this email already exists."}},
 )
 async def register(

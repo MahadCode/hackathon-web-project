@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Bot, User as UserIcon, Send, CheckCircle2, XCircle, Sparkles } from "lucide-react";
@@ -13,7 +14,6 @@ import { useJobs } from "@/lib/hooks/use-jobs";
 import { useCandidatesForJob } from "@/lib/hooks/use-candidates";
 import { interviewsApi } from "@/lib/api/interviews";
 import { getApiErrorMessage } from "@/lib/api/client";
-import { getInitials } from "@/lib/utils/cn";
 import type { InterviewEvaluateResponse } from "@/types/domain";
 
 interface Turn {
@@ -22,11 +22,12 @@ interface Turn {
   focusArea?: string;
 }
 
-export default function InterviewsPage() {
+function InterviewsClient() {
+  const searchParams = useSearchParams();
   const { data: jobs } = useJobs();
-  const [jobId, setJobId] = React.useState("");
+  const [jobId, setJobId] = React.useState(searchParams.get("job") ?? "");
   const { data: candidates } = useCandidatesForJob(jobId);
-  const [candidateId, setCandidateId] = React.useState("");
+  const [candidateId, setCandidateId] = React.useState(searchParams.get("candidate") ?? "");
 
   const [turns, setTurns] = React.useState<Turn[]>([]);
   const [answer, setAnswer] = React.useState("");
@@ -81,9 +82,10 @@ export default function InterviewsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-heading">AI Interview</h1>
+        <p className="label-mono text-muted-foreground">Adaptive session</p>
+        <h1 className="mt-1 text-3xl font-normal tracking-tight text-heading">AI Interview</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Conduct an adaptive, AI-generated interview and get an instant evaluation.
+          Conduct an adaptive interview and store an evaluation against the candidate.
         </p>
       </div>
 
@@ -217,5 +219,13 @@ export default function InterviewsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function InterviewsPage() {
+  return (
+    <React.Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+      <InterviewsClient />
+    </React.Suspense>
   );
 }

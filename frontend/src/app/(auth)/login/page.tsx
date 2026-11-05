@@ -7,14 +7,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Telescope } from "lucide-react";
 
+import { BrandLogo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
 import { authApi } from "@/lib/api/auth";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { homeForRole } from "@/lib/auth/roles";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email address."),
@@ -37,8 +38,9 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await authApi.login(values);
-      toast.success("Welcome back!");
-      router.push("/dashboard");
+      const me = await authApi.me();
+      toast.success("Welcome back.");
+      router.push(homeForRole(me.role));
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     } finally {
@@ -49,15 +51,13 @@ export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-center gap-2 text-center lg:hidden">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-brand">
-          <Telescope className="h-5 w-5 text-white" />
-        </div>
-        <span className="text-lg font-semibold text-heading">Talent Lens</span>
+        <BrandLogo />
       </div>
 
-      <div className="space-y-1.5 text-center lg:text-left">
-        <h2 className="text-2xl font-semibold tracking-tight text-heading">Welcome back</h2>
-        <p className="text-sm text-muted-foreground">Sign in to continue to your hiring workspace.</p>
+      <div className="space-y-1.5">
+        <p className="label-mono text-muted-foreground">Sign in</p>
+        <h2 className="text-2xl font-normal tracking-tight text-heading">Welcome back</h2>
+        <p className="text-sm text-muted-foreground">Continue to your workspace.</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -70,7 +70,7 @@ export default function LoginPage() {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
-            <Link href="/forgot-password" className="text-xs font-medium text-primary hover:underline">
+            <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-heading">
               Forgot password?
             </Link>
           </div>
@@ -79,14 +79,19 @@ export default function LoginPage() {
         </div>
 
         <Button type="submit" className="w-full" size="lg" isLoading={isSubmitting}>
-          Sign in
+          ·· Launch
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{" "}
-        <Link href="/register" className="font-medium text-primary hover:underline">
-          Create one
+        Hiring?{" "}
+        <Link href="/register" className="text-heading underline-offset-4 hover:underline">
+          Create a workspace
+        </Link>
+        <span className="mx-2 text-heading/20">·</span>
+        Applying?{" "}
+        <Link href="/register?as=candidate" className="text-heading underline-offset-4 hover:underline">
+          Create a candidate account
         </Link>
       </p>
     </div>

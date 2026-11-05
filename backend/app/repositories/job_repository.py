@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import JobStatus
@@ -42,3 +42,17 @@ class JobRepository(BaseRepository[Job]):
         query = query.offset(offset).limit(limit)
         result = await self._session.execute(query)
         return list(result.scalars().all())
+
+    async def count_by_status(self, status: JobStatus) -> int:
+        """Count jobs in a single status.
+
+        Args:
+            status: The job status to count.
+
+        Returns:
+            The number of matching jobs.
+        """
+
+        query = select(func.count()).select_from(Job).where(Job.status == status)
+        result = await self._session.execute(query)
+        return int(result.scalar_one())

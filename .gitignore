@@ -1,0 +1,15 @@
+.env
+.env.local
+.env.*.local
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.next/
+**/node_modules/
+**/*.sqlite
+**/*.sqlite3
+backend/venv/
+backend/uploads/
+frontend/tsconfig.tsbuildinfo
+.DS_Store

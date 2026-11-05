@@ -1,41 +1,37 @@
 """Application-wide settings for the FastAPI backend.
 
 Centralizes all environment-driven configuration (database URL, JWT
-secrets, token lifetimes, CORS origins) behind a single cached
-`Settings` object so no other module reads `os.environ` directly.
+secrets, token lifetimes, CORS origins, allowed hosts) behind a single
+cached `Settings` object so no other module reads `os.environ` directly.
 """
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
-    """Typed configuration sourced from environment variables / `.env`.
+def _parse_host_list(value: object) -> list[str]:
+    """Accept JSON arrays or comma-separated host/origin strings."""
 
-    Attributes:
-        app_name: Human-readable application name shown in API docs.
-        environment: Deployment environment name (e.g. "development",
-            "production"); used to toggle debug behavior.
-        api_v1_prefix: URL prefix under which all v1 routes are mounted.
-        database_url: Async SQLAlchemy connection string, e.g.
-            "postgresql+asyncpg://user:pass@host:5432/dbname".
-        jwt_secret_key: Secret used to sign JWT access/refresh tokens.
-            Must be overridden via environment variable in every real
-            deployment; never commit a real value.
-        jwt_algorithm: Signing algorithm for JWTs.
-        access_token_expire_minutes: Access token lifetime in minutes.
-        refresh_token_expire_days: Refresh token lifetime in days.
-        password_reset_token_expire_minutes: Lifetime of a password reset
-            token in minutes.
-        cors_allow_origins: List of origins permitted by CORS middleware.
-        upload_dir: Filesystem directory where uploaded files (resumes,
-            profile images) are stored.
-        max_upload_size_mb: Maximum accepted upload size, in megabytes.
-    """
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    if not text:
+        return []
+    if text.startswith("["):
+        parsed = json.loads(text)
+        return [str(item).strip() for item in parsed if str(item).strip()]
+    return [part.strip() for part in text.split(",") if part.strip()]
+
+
+class Settings(BaseSettings):
+    """Typed configuration sourced from environment variables / `.env`."""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -56,33 +52,65 @@ class Settings(BaseSettings):
         default=30, alias="PASSWORD_RESET_TOKEN_EXPIRE_MINUTES"
     )
 
+    frontend_url: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
     cors_allow_origins: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
             "http://127.0.0.1:3000",
-        ]
+        ],
+        alias="CORS_ALLOW_ORIGINS",
+    )
+    allowed_hosts: list[str] = Field(
+        default_factory=lambda: ["localhost", "127.0.0.1", "test", "testserver"],
+        alias="ALLOWED_HOSTS",
     )
 
     upload_dir: str = Field(default="./uploads", alias="UPLOAD_DIR")
     max_upload_size_mb: int = Field(default=10, alias="MAX_UPLOAD_SIZE_MB")
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def async_postgres_url(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        url = value
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://") :]
+        if url.startswith("postgresql://") and "+asyncpg" not in url:
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+
+    @field_validator("cors_allow_origins", "allowed_hosts", mode="before")
+    @classmethod
+    def parse_csv_or_json(cls, value: object) -> list[str]:
+        return _parse_host_list(value)
+
     @property
     def is_production(self) -> bool:
-        """Whether the app is running in a production environment.
-
-        Returns:
-            True if `environment` equals "production" (case-insensitive).
-        """
-
         return self.environment.lower() == "production"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        origins = list(self.cors_allow_origins)
+        frontend = self.frontend_url.rstrip("/")
+        if frontend and frontend not in origins:
+            origins.append(frontend)
+        return origins
+
+    @property
+    def trusted_hosts(self) -> list[str]:
+        hosts = list(self.allowed_hosts)
+        if "*" in hosts:
+            return ["*"]
+        extras = ["localhost", "127.0.0.1"]
+        for extra in extras:
+            if extra not in hosts:
+                hosts.append(extra)
+        return hosts
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Return a cached, process-wide `Settings` instance.
-
-    Returns:
-        The singleton `Settings` instance for this process.
-    """
+    """Return a cached, process-wide `Settings` instance."""
 
     return Settings()

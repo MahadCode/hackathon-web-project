@@ -102,7 +102,12 @@ class Settings(BaseSettings):
         hosts = list(self.allowed_hosts)
         if "*" in hosts:
             return ["*"]
-        extras = ["localhost", "127.0.0.1"]
+        extras = [
+            "localhost",
+            "127.0.0.1",
+            ".onrender.com",
+            ".up.railway.app",
+        ]
         for extra in extras:
             if extra not in hosts:
                 hosts.append(extra)

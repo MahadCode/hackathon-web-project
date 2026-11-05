@@ -71,6 +71,15 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+    @app.get("/", include_in_schema=False)
+    async def root() -> dict[str, str]:
+        return {
+            "service": "talent-lens-api",
+            "health": "/api/v1/health",
+            "message": "This is the API, not the website. Open the talent-lens-web URL.",
+        }
+
     return app
 
 

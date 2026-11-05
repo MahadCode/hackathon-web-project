@@ -31,8 +31,8 @@ Two services plus a database. SQLite is local-only.
 | `DATABASE_URL` | Render/Railway Postgres URL (auto-converted to `postgresql+asyncpg://`) |
 | `JWT_SECRET_KEY` | long random secret (host can generate) |
 | `FRONTEND_URL` | `https://YOUR_FRONTEND` |
-| `CORS_ALLOW_ORIGINS` | `https://YOUR_FRONTEND` |
-| `ALLOWED_HOSTS` | `YOUR_API_HOST` (no `https://`) |
+| `CORS_ALLOW_ORIGINS` | `https://YOUR_FRONTEND` (plain URL or comma list, not JSON) |
+| `ALLOWED_HOSTS` | `YOUR_API_HOST` (no `https://`; plain host or comma list) |
 | `UPLOAD_DIR` | `/data/uploads` |
 | `GOOGLE_API_KEY` | `AIza...` |
 | `GEMINI_MODEL` | `gemini-2.5-flash` |

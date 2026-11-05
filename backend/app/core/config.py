@@ -53,15 +53,13 @@ class Settings(BaseSettings):
     )
 
     frontend_url: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
-    cors_allow_origins: list[str] = Field(
-        default_factory=lambda: [
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ],
+    # Stored as strings so Render CSV/URL values are not JSON-decoded on boot.
+    cors_allow_origins: str = Field(
+        default="http://localhost:3000,http://127.0.0.1:3000",
         alias="CORS_ALLOW_ORIGINS",
     )
-    allowed_hosts: list[str] = Field(
-        default_factory=lambda: ["localhost", "127.0.0.1", "test", "testserver"],
+    allowed_hosts: str = Field(
+        default="localhost,127.0.0.1,test,testserver",
         alias="ALLOWED_HOSTS",
     )
 
@@ -80,18 +78,13 @@ class Settings(BaseSettings):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
 
-    @field_validator("cors_allow_origins", "allowed_hosts", mode="before")
-    @classmethod
-    def parse_csv_or_json(cls, value: object) -> list[str]:
-        return _parse_host_list(value)
-
     @property
     def is_production(self) -> bool:
         return self.environment.lower() == "production"
 
     @property
     def cors_origins(self) -> list[str]:
-        origins = list(self.cors_allow_origins)
+        origins = _parse_host_list(self.cors_allow_origins)
         frontend = self.frontend_url.rstrip("/")
         if frontend and frontend not in origins:
             origins.append(frontend)
@@ -99,7 +92,7 @@ class Settings(BaseSettings):
 
     @property
     def trusted_hosts(self) -> list[str]:
-        hosts = list(self.allowed_hosts)
+        hosts = _parse_host_list(self.allowed_hosts)
         if "*" in hosts:
             return ["*"]
         extras = [

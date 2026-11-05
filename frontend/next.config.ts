@@ -3,9 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
-    optimizePackageImports: ["lucide-react"],
+    optimizePackageImports: ["lucide-react", "recharts", "framer-motion"],
     staleTimes: {
-      dynamic: 30,
+      dynamic: 180,
       static: 180,
     },
   },

@@ -12,14 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useJobs } from "@/lib/hooks/use-jobs";
-import { useCandidatesForJob } from "@/lib/hooks/use-candidates";
 import { formatDate } from "@/lib/utils/cn";
 import type { JobStatus } from "@/types/domain";
-
-function ApplicantCount({ jobId }: { jobId: string }) {
-  const { data } = useCandidatesForJob(jobId);
-  return <p className="label-mono text-muted-foreground">{data?.length ?? 0} applicants</p>;
-}
 
 const STATUS_VARIANT: Record<JobStatus, "outline" | "success" | "secondary" | "warning"> = {
   DRAFT: "outline",
@@ -32,7 +26,7 @@ export default function JobsPage() {
   const [statusFilter, setStatusFilter] = React.useState<JobStatus | "ALL">("ALL");
   const [search, setSearch] = React.useState("");
 
-  const { data: jobs, isLoading } = useJobs(statusFilter === "ALL" ? undefined : statusFilter);
+  const { data: jobs, isPending } = useJobs(statusFilter === "ALL" ? undefined : statusFilter);
 
   const filteredJobs = (jobs ?? []).filter((job) => job.title.toLowerCase().includes(search.toLowerCase()));
 
@@ -75,7 +69,7 @@ export default function JobsPage() {
         </Select>
       </div>
 
-      {isLoading ? (
+      {isPending && !jobs ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-40 rounded-2xl" />
@@ -101,10 +95,7 @@ export default function JobsPage() {
                       <Badge variant={STATUS_VARIANT[job.status]}>{job.status}</Badge>
                     </div>
                     <p className="line-clamp-3 flex-1 text-sm text-muted-foreground">{job.description}</p>
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs text-muted-foreground">Posted {formatDate(job.created_at)}</p>
-                      <ApplicantCount jobId={job.id} />
-                    </div>
+                    <p className="text-xs text-muted-foreground">Posted {formatDate(job.created_at)}</p>
                   </CardContent>
                 </Card>
               </Link>

@@ -16,7 +16,7 @@ import { useCandidatesForJob } from "@/lib/hooks/use-candidates";
 import { getInitials } from "@/lib/utils/cn";
 
 export default function CandidatesPage() {
-  const { data: jobs, isLoading: jobsLoading } = useJobs();
+  const { data: jobs, isPending: jobsPending } = useJobs();
   const [selectedJobId, setSelectedJobId] = React.useState<string>("");
 
   React.useEffect(() => {
@@ -25,7 +25,7 @@ export default function CandidatesPage() {
     }
   }, [jobs, selectedJobId]);
 
-  const { data: candidates, isLoading: candidatesLoading } = useCandidatesForJob(selectedJobId);
+  const { data: candidates, isPending: candidatesPending } = useCandidatesForJob(selectedJobId);
 
   return (
     <div className="space-y-6">
@@ -36,7 +36,7 @@ export default function CandidatesPage() {
           <p className="mt-1 text-sm text-muted-foreground">Browse scored applicants by job.</p>
         </div>
 
-        {jobsLoading ? (
+        {jobsPending && !jobs ? (
           <Skeleton className="h-10 w-64 rounded-xl" />
         ) : (
           <Select value={selectedJobId} onValueChange={setSelectedJobId}>
@@ -54,7 +54,7 @@ export default function CandidatesPage() {
         )}
       </div>
 
-      {candidatesLoading ? (
+      {candidatesPending && !candidates ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-16 rounded-xl" />

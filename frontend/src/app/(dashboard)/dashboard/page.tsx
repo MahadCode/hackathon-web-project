@@ -10,7 +10,7 @@ import { useAnalyticsSummary } from "@/lib/hooks/use-analytics";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { data, isLoading } = useAnalyticsSummary();
+  const { data, isPending } = useAnalyticsSummary();
   const firstName = user?.full_name?.split(" ")[0] ?? "there";
 
   return (
@@ -22,7 +22,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {isLoading || !data ? (
+        {isPending && !data ? (
           Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[100px]" />)
         ) : (
           <>

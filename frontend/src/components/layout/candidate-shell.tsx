@@ -1,7 +1,8 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Briefcase, FileText, FolderOpen } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/logo";
@@ -16,7 +17,14 @@ const NAV = [
 
 export function CandidateShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
+
+  React.useEffect(() => {
+    NAV.forEach((item) => {
+      router.prefetch(item.href);
+    });
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-background">

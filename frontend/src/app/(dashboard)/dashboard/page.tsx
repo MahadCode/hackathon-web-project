@@ -22,7 +22,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {isPending && !data ? (
+        {isPending || !data ? (
           Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[100px]" />)
         ) : (
           <>

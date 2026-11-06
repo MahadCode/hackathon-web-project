@@ -1,7 +1,7 @@
 """Transactional email for verification, password reset, and two-step login.
 
-Production uses Resend (or SMTP if configured). Development logs the message
-when no provider is set so local signup still works.
+Production prefers SendLiberty (Gmail OAuth, no domain), then Resend, then SMTP.
+Development logs the message when no provider is set.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ class EmailService:
 
     @property
     def _has_provider(self) -> bool:
-        return bool(self._settings.resend_api_key) or bool(self._settings.smtp_host)
+        return bool(self._settings.sendliberty_key) or bool(self._settings.resend_api_key) or bool(self._settings.smtp_host)
 
     async def send_verification(self, to: str, code: str, link: str) -> None:
         extra = (
@@ -75,6 +75,9 @@ class EmailService:
         )
 
     async def _send(self, to: str, subject: str, html: str, text: str) -> None:
+        if self._settings.sendliberty_key:
+            await self._send_sendliberty(to, subject, html, text)
+            return
         if self._settings.resend_api_key:
             await self._send_resend(to, subject, html)
             return
@@ -82,8 +85,39 @@ class EmailService:
             self._send_smtp(to, subject, html, text)
             return
         if self._settings.is_production:
-            raise EmailDeliveryError("Email is not configured. Set RESEND_API_KEY or SMTP_HOST.")
+            raise EmailDeliveryError("Email is not configured. Set SENDLIBERTY_API_KEY, RESEND_API_KEY, or SMTP_HOST.")
         logger.info("Email (dev, not sent) to=%s subject=%s body=%s", to, subject, text)
+
+    async def _send_sendliberty(self, to: str, subject: str, html: str, text: str) -> None:
+        key = self._settings.sendliberty_key or ""
+        payload: dict[str, str] = {
+            "to": to,
+            "subject": subject,
+            "html": html,
+            "text": text,
+        }
+        from_address = self._settings.email_from.strip()
+        if from_address and "localhost" not in from_address.lower():
+            payload["from"] = from_address
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.post(
+                    "https://sendliberty.com/api/send",
+                    headers={
+                        "Content-Type": "application/json",
+                        "X-API-Key": key,
+                        "Authorization": f"Bearer {key}",
+                    },
+                    json=payload,
+                )
+            if response.status_code >= 400:
+                logger.error("SendLiberty rejected email status=%s body=%s", response.status_code, response.text)
+                raise EmailDeliveryError("Could not send email. Try again in a moment.")
+        except EmailDeliveryError:
+            raise
+        except Exception as exc:
+            logger.exception("SendLiberty request failed.")
+            raise EmailDeliveryError("Could not send email. Try again in a moment.") from exc
 
     async def _send_resend(self, to: str, subject: str, html: str) -> None:
         try:

@@ -36,8 +36,9 @@ Two services plus a database. SQLite is local-only.
 | `UPLOAD_DIR` | `/data/uploads` |
 | `GOOGLE_API_KEY` | `AIza...` |
 | `GEMINI_MODEL` | `gemini-2.5-flash` |
-| `RESEND_API_KEY` | `re_...` from [Resend](https://resend.com) |
-| `EMAIL_FROM` | `Talent Lens <noreply@YOUR_VERIFIED_DOMAIN>` |
+| `SENDLIBERTY_API_KEY` | SendLiberty dashboard key (sends via connected Gmail, no domain) |
+| `EMAIL_FROM` | `Talent Lens <yourgmail@gmail.com>` (the Gmail connected in SendLiberty) |
+| `RESEND_API_KEY` | optional; only if you are not using SendLiberty |
 
 ## Environment the frontend expects
 
@@ -56,8 +57,8 @@ This is baked in at **build** time. If the API URL changes, rebuild the frontend
    - `CORS_ALLOW_ORIGINS=https://talent-lens-web.onrender.com`
    - `ALLOWED_HOSTS=talent-lens-api.onrender.com`
    - `GOOGLE_API_KEY=AIza...`
-   - `RESEND_API_KEY=re_...`
-   - `EMAIL_FROM=Talent Lens <noreply@YOUR_VERIFIED_DOMAIN>`
+   - `SENDLIBERTY_API_KEY=your-sendliberty-key`
+   - `EMAIL_FROM=Talent Lens <yourgmail@gmail.com>`
 4. Set on **talent-lens-web**:
    - `NEXT_PUBLIC_API_BASE_URL=https://talent-lens-api.onrender.com/api/v1`
 5. Trigger a **frontend rebuild** after the API URL is set.
@@ -98,6 +99,6 @@ Same backend as Path A. Frontend on Vercel:
 
 New signups cannot use the app until the email is verified. Existing database users are marked verified by migration `0004_email_auth`. Two-step verification is opt-in under Settings → Security.
 
-Resend only delivers to arbitrary inboxes after you verify a sending domain. Until then, mail may only reach the Resend account email.
+SendLiberty sends through the Gmail you connected in their dashboard. No domain verification. `EMAIL_FROM` should match that Gmail address.
 
 Seed data is local-only. Production starts empty unless you run `python -m scripts.seed_demo` against that database (do not do that on a public internet app without changing `DemoPass123`).

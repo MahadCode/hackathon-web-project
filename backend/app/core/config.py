@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     upload_dir: str = Field(default="./uploads", alias="UPLOAD_DIR")
     max_upload_size_mb: int = Field(default=10, alias="MAX_UPLOAD_SIZE_MB")
 
+    sendliberty_api_key: str | None = Field(default=None, alias="SENDLIBERTY_API_KEY")
+    sl_api_key: str | None = Field(default=None, alias="SL_API_KEY")
     resend_api_key: str | None = Field(default=None, alias="RESEND_API_KEY")
     email_from: str = Field(default="Talent Lens <noreply@localhost>", alias="EMAIL_FROM")
     smtp_host: str | None = Field(default=None, alias="SMTP_HOST")
@@ -93,6 +95,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment.lower() == "production"
+
+    @property
+    def sendliberty_key(self) -> str | None:
+        return self.sendliberty_api_key or self.sl_api_key
 
     @property
     def cors_origins(self) -> list[str]:

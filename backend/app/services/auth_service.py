@@ -1,46 +1,57 @@
-"""Business logic for authentication and account security.
-
-`AuthService` is the only layer that combines password hashing, JWT
-issuance, and user/refresh-token persistence into higher-level operations
-like "log in" or "rotate a refresh token".
-"""
+"""Business logic for authentication and account security."""
 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from app.core.constants import TokenType, UserRole
+from app.core.config import Settings, get_settings
+from app.core.constants import EmailChallengePurpose, TokenType, UserRole
 from app.core.security import (
     TokenPayloadError,
     create_access_token,
-    create_password_reset_token,
     create_refresh_token,
     decode_token,
+    generate_link_token,
+    generate_otp_code,
     hash_password,
+    hash_secret_value,
+    secrets_match,
     verify_password,
 )
-from app.exceptions.errors import AuthenticationError, ConflictError, NotFoundError
+from app.exceptions.errors import (
+    AuthenticationError,
+    AuthorizationError,
+    ConflictError,
+    NotFoundError,
+    RateLimitError,
+)
+from app.models.email_challenge import EmailChallenge
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
+from app.repositories.email_challenge_repository import EmailChallengeRepository
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.repositories.user_repository import UserRepository
-from app.schemas.auth import TokenPair
+from app.schemas.auth import LoginResponse, TokenPair
+from app.services.email_service import EmailService
 
 
 class AuthService:
-    """Coordinates registration, login, token lifecycle, and password resets."""
+    """Coordinates registration, login, email challenges, and password resets."""
 
-    def __init__(self, user_repo: UserRepository, refresh_token_repo: RefreshTokenRepository) -> None:
-        """Initialize the service.
-
-        Args:
-            user_repo: Repository for `User` persistence.
-            refresh_token_repo: Repository for `RefreshToken` persistence.
-        """
-
+    def __init__(
+        self,
+        user_repo: UserRepository,
+        refresh_token_repo: RefreshTokenRepository,
+        challenge_repo: EmailChallengeRepository,
+        email_service: EmailService | None = None,
+        settings: Settings | None = None,
+    ) -> None:
         self._user_repo = user_repo
         self._refresh_token_repo = refresh_token_repo
+        self._challenge_repo = challenge_repo
+        self._email_service = email_service or EmailService()
+        self._settings = settings or get_settings()
 
     async def register(
         self,
@@ -49,23 +60,7 @@ class AuthService:
         password: str,
         role: UserRole,
         company_name: str | None,
-    ) -> tuple[User, TokenPair]:
-        """Register a new user and issue an initial token pair.
-
-        Args:
-            full_name: The new user's display name.
-            email: The new user's unique email address.
-            password: The new user's plaintext password (hashed before storage).
-            role: The role assigned to the new user.
-            company_name: Optional company/organization name.
-
-        Returns:
-            A tuple of the created `User` and their initial `TokenPair`.
-
-        Raises:
-            ConflictError: If a user with this email already exists.
-        """
-
+    ) -> User:
         existing = await self._user_repo.get_by_email(email)
         if existing is not None:
             raise ConflictError("A user with this email already exists.")
@@ -76,50 +71,67 @@ class AuthService:
             hashed_password=hash_password(password),
             role=role,
             company_name=company_name,
+            is_verified=False,
+            two_factor_enabled=False,
         )
         user = await self._user_repo.add(user)
-        tokens = await self._issue_token_pair(user)
-        return user, tokens
+        await self._issue_email_challenge(user, EmailChallengePurpose.EMAIL_VERIFY)
+        return user
 
-    async def login(self, email: str, password: str) -> tuple[User, TokenPair]:
-        """Authenticate a user by email/password and issue a token pair.
-
-        Args:
-            email: The user's email address.
-            password: The user's plaintext password.
-
-        Returns:
-            A tuple of the authenticated `User` and a new `TokenPair`.
-
-        Raises:
-            AuthenticationError: If credentials are invalid or the account
-                is inactive.
-        """
-
+    async def login(self, email: str, password: str) -> LoginResponse:
         user = await self._user_repo.get_by_email(email)
         if user is None or not verify_password(password, user.hashed_password):
             raise AuthenticationError("Invalid email or password.")
         if not user.is_active:
             raise AuthenticationError("This account has been deactivated.")
+        if not user.is_verified:
+            raise AuthorizationError(
+                "Verify your email before signing in.",
+                error_code="email_not_verified",
+            )
+
+        if user.two_factor_enabled:
+            challenge = await self._issue_email_challenge(user, EmailChallengePurpose.TWO_FACTOR_LOGIN)
+            return LoginResponse(requires_2fa=True, challenge_id=challenge.id)
 
         user.last_login = datetime.now(timezone.utc)
         tokens = await self._issue_token_pair(user)
-        return user, tokens
+        return LoginResponse(
+            access_token=tokens.access_token,
+            refresh_token=tokens.refresh_token,
+            token_type=tokens.token_type,
+        )
+
+    async def complete_login_2fa(self, challenge_id: uuid.UUID, code: str) -> TokenPair:
+        challenge = await self._consume_challenge_by_id(
+            challenge_id, code, EmailChallengePurpose.TWO_FACTOR_LOGIN
+        )
+        user = await self._user_repo.get_by_id(challenge.user_id)
+        if user is None or not user.is_active:
+            raise AuthenticationError("User not found or inactive.")
+        user.last_login = datetime.now(timezone.utc)
+        return await self._issue_token_pair(user)
+
+    async def verify_email(self, token: str | None, email: str | None, code: str | None) -> User:
+        challenge = await self._resolve_challenge(
+            purpose=EmailChallengePurpose.EMAIL_VERIFY,
+            token=token,
+            email=email,
+            code=code,
+        )
+        user = await self._user_repo.get_by_id(challenge.user_id)
+        if user is None:
+            raise NotFoundError("User not found.")
+        user.is_verified = True
+        return user
+
+    async def resend_verification(self, email: str) -> None:
+        user = await self._user_repo.get_by_email(email)
+        if user is None or user.is_verified or not user.is_active:
+            return
+        await self._issue_email_challenge(user, EmailChallengePurpose.EMAIL_VERIFY)
 
     async def refresh(self, refresh_token: str) -> TokenPair:
-        """Rotate a refresh token: revoke the old one and issue a new pair.
-
-        Args:
-            refresh_token: A previously issued refresh token string.
-
-        Returns:
-            A new `TokenPair`.
-
-        Raises:
-            AuthenticationError: If the token is invalid, expired, revoked,
-                or belongs to a user that no longer exists/is inactive.
-        """
-
         try:
             payload = decode_token(refresh_token, expected_type=TokenType.REFRESH)
         except TokenPayloadError as exc:
@@ -132,20 +144,16 @@ class AuthService:
         user = await self._user_repo.get_by_id(uuid.UUID(payload["sub"]))
         if user is None or not user.is_active:
             raise AuthenticationError("User not found or inactive.")
+        if not user.is_verified:
+            raise AuthorizationError(
+                "Verify your email before continuing.",
+                error_code="email_not_verified",
+            )
 
         await self._refresh_token_repo.revoke(stored_token)
         return await self._issue_token_pair(user)
 
     async def logout(self, refresh_token: str) -> None:
-        """Revoke a single refresh token (log out of one session).
-
-        Args:
-            refresh_token: The refresh token string to revoke.
-
-        Raises:
-            AuthenticationError: If the token is malformed.
-        """
-
         try:
             payload = decode_token(refresh_token, expected_type=TokenType.REFRESH)
         except TokenPayloadError as exc:
@@ -155,78 +163,182 @@ class AuthService:
         if stored_token is not None:
             await self._refresh_token_repo.revoke(stored_token)
 
-    async def request_password_reset(self, email: str) -> str | None:
-        """Issue a password reset token for a user, if the email is known.
-
-        Args:
-            email: The email address requesting a reset.
-
-        Returns:
-            The reset token if the email matches an active user, otherwise
-            None. Callers should return the same generic success response
-            in both cases to avoid leaking which emails are registered.
-        """
-
+    async def request_password_reset(self, email: str) -> None:
         user = await self._user_repo.get_by_email(email)
-        if user is None:
-            return None
-        return create_password_reset_token(str(user.id))
+        if user is None or not user.is_active:
+            return
+        await self._issue_email_challenge(user, EmailChallengePurpose.PASSWORD_RESET)
 
-    async def reset_password(self, reset_token: str, new_password: str) -> None:
-        """Reset a user's password using a valid password-reset token.
-
-        Args:
-            reset_token: The token issued via `request_password_reset`.
-            new_password: The new plaintext password to set.
-
-        Raises:
-            AuthenticationError: If the token is invalid or expired.
-            NotFoundError: If the associated user no longer exists.
-        """
-
-        try:
-            payload = decode_token(reset_token, expected_type=TokenType.PASSWORD_RESET)
-        except TokenPayloadError as exc:
-            raise AuthenticationError("Invalid or expired password reset token.") from exc
-
-        user = await self._user_repo.get_by_id(uuid.UUID(payload["sub"]))
+    async def reset_password(
+        self,
+        new_password: str,
+        reset_token: str | None = None,
+        email: str | None = None,
+        code: str | None = None,
+    ) -> None:
+        challenge = await self._resolve_challenge(
+            purpose=EmailChallengePurpose.PASSWORD_RESET,
+            token=reset_token,
+            email=email,
+            code=code,
+        )
+        user = await self._user_repo.get_by_id(challenge.user_id)
         if user is None:
             raise NotFoundError("User not found.")
-
         user.hashed_password = hash_password(new_password)
         await self._refresh_token_repo.revoke_all_for_user(user.id)
 
     async def change_password(self, user: User, current_password: str, new_password: str) -> None:
-        """Change a logged-in user's password after verifying the current one.
-
-        Args:
-            user: The authenticated user changing their password.
-            current_password: The user's current plaintext password.
-            new_password: The new plaintext password to set.
-
-        Raises:
-            AuthenticationError: If `current_password` does not match.
-        """
-
         if not verify_password(current_password, user.hashed_password):
             raise AuthenticationError("Current password is incorrect.")
-
         user.hashed_password = hash_password(new_password)
         await self._refresh_token_repo.revoke_all_for_user(user.id)
 
+    async def request_two_factor_enable(self, user: User) -> None:
+        if user.two_factor_enabled:
+            raise ConflictError("Two-step verification is already on.")
+        await self._issue_email_challenge(user, EmailChallengePurpose.TWO_FACTOR_ENABLE)
+
+    async def confirm_two_factor_enable(self, user: User, code: str) -> None:
+        challenge = await self._challenge_repo.get_active_for_user(
+            user.id, EmailChallengePurpose.TWO_FACTOR_ENABLE.value
+        )
+        if challenge is None:
+            raise AuthenticationError("No two-step verification request is pending.")
+        await self._consume_existing(challenge, code)
+        user.two_factor_enabled = True
+
+    async def request_two_factor_disable(self, user: User, password: str) -> None:
+        if not user.two_factor_enabled:
+            raise ConflictError("Two-step verification is already off.")
+        if not verify_password(password, user.hashed_password):
+            raise AuthenticationError("Current password is incorrect.")
+        await self._issue_email_challenge(user, EmailChallengePurpose.TWO_FACTOR_DISABLE)
+
+    async def confirm_two_factor_disable(self, user: User, code: str) -> None:
+        challenge = await self._challenge_repo.get_active_for_user(
+            user.id, EmailChallengePurpose.TWO_FACTOR_DISABLE.value
+        )
+        if challenge is None:
+            raise AuthenticationError("No two-step disable request is pending.")
+        await self._consume_existing(challenge, code)
+        user.two_factor_enabled = False
+
+    async def _issue_email_challenge(self, user: User, purpose: EmailChallengePurpose) -> EmailChallenge:
+        window = timedelta(minutes=self._settings.email_send_window_minutes)
+        recent = await self._challenge_repo.count_recent(user.id, purpose.value, window)
+        if recent >= self._settings.email_send_limit:
+            raise RateLimitError("Too many emails sent. Wait a few minutes and try again.")
+
+        await self._challenge_repo.consume_open_for_user(user.id, purpose.value)
+        code = generate_otp_code()
+        link_token = generate_link_token() if purpose in {
+            EmailChallengePurpose.EMAIL_VERIFY,
+            EmailChallengePurpose.PASSWORD_RESET,
+        } else None
+        minutes = (
+            self._settings.email_link_expire_minutes
+            if purpose in {EmailChallengePurpose.EMAIL_VERIFY, EmailChallengePurpose.PASSWORD_RESET}
+            else self._settings.email_otp_expire_minutes
+        )
+        challenge = EmailChallenge(
+            user_id=user.id,
+            purpose=purpose.value,
+            code_hash=hash_secret_value(code),
+            link_token_hash=hash_secret_value(link_token) if link_token else None,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=minutes),
+            attempt_count=0,
+        )
+        challenge = await self._challenge_repo.add(challenge)
+        await self._deliver(user, purpose, code, link_token)
+        return challenge
+
+    async def _deliver(
+        self,
+        user: User,
+        purpose: EmailChallengePurpose,
+        code: str,
+        link_token: str | None,
+    ) -> None:
+        origin = self._settings.frontend_url.rstrip("/")
+        if purpose is EmailChallengePurpose.EMAIL_VERIFY:
+            link = f"{origin}/verify-email?token={link_token}"
+            await self._email_service.send_verification(user.email, code, link)
+            return
+        if purpose is EmailChallengePurpose.PASSWORD_RESET:
+            link = f"{origin}/reset-password?token={link_token}"
+            await self._email_service.send_password_reset(user.email, code, link)
+            return
+        await self._email_service.send_two_factor(user.email, code)
+
+    async def _resolve_challenge(
+        self,
+        purpose: EmailChallengePurpose,
+        token: str | None,
+        email: str | None,
+        code: str | None,
+    ) -> EmailChallenge:
+        if token:
+            challenge = await self._challenge_repo.get_active_by_link_hash(hash_secret_value(token))
+            if challenge is None or challenge.purpose != purpose.value:
+                raise AuthenticationError("Invalid or expired link.")
+            now = datetime.now(timezone.utc)
+            expires = challenge.expires_at
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if expires < now:
+                await self._mark_consumed(challenge)
+                raise AuthenticationError("This link has expired.")
+            await self._mark_consumed(challenge)
+            return challenge
+
+        if not email or not code:
+            raise AuthenticationError("Invalid or expired code.")
+        user = await self._user_repo.get_by_email(email)
+        if user is None:
+            raise AuthenticationError("Invalid or expired code.")
+        challenge = await self._challenge_repo.get_active_for_user(user.id, purpose.value)
+        if challenge is None:
+            raise AuthenticationError("Invalid or expired code.")
+        await self._consume_existing(challenge, code)
+        return challenge
+
+    async def _consume_challenge_by_id(
+        self,
+        challenge_id: uuid.UUID,
+        code: str,
+        purpose: EmailChallengePurpose,
+    ) -> EmailChallenge:
+        challenge = await self._challenge_repo.get_active_by_id(challenge_id)
+        if challenge is None or challenge.purpose != purpose.value:
+            raise AuthenticationError("Invalid or expired code.")
+        await self._consume_existing(challenge, code)
+        return challenge
+
+    async def _consume_existing(self, challenge: EmailChallenge, code: str) -> None:
+        now = datetime.now(timezone.utc)
+        expires = challenge.expires_at
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires < now:
+            await self._mark_consumed(challenge)
+            raise AuthenticationError("This code has expired.")
+        challenge.attempt_count += 1
+        if challenge.attempt_count > self._settings.email_otp_max_attempts:
+            await self._mark_consumed(challenge)
+            raise RateLimitError("Too many incorrect codes. Request a new one.")
+        if not secrets_match(code.strip(), challenge.code_hash):
+            await self._challenge_repo._session.flush()
+            raise AuthenticationError("Invalid or expired code.")
+        await self._mark_consumed(challenge)
+
+    async def _mark_consumed(self, challenge: EmailChallenge) -> None:
+        challenge.consumed_at = datetime.now(timezone.utc)
+        await self._challenge_repo._session.flush()
+
     async def _issue_token_pair(self, user: User) -> TokenPair:
-        """Create a new access/refresh token pair and persist the refresh token.
-
-        Args:
-            user: The user to issue tokens for.
-
-        Returns:
-            A `TokenPair` containing both tokens.
-        """
-
         access_token = create_access_token(user_id=str(user.id), role=user.role.value)
         refresh_token_str = create_refresh_token(user_id=str(user.id))
-
         payload = decode_token(refresh_token_str, expected_type=TokenType.REFRESH)
         refresh_token_record = RefreshToken(
             user_id=user.id,
@@ -234,5 +346,4 @@ class AuthService:
             expires_at=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
         )
         await self._refresh_token_repo.add(refresh_token_record)
-
         return TokenPair(access_token=access_token, refresh_token=refresh_token_str)

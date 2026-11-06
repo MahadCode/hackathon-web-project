@@ -66,6 +66,18 @@ class Settings(BaseSettings):
     upload_dir: str = Field(default="./uploads", alias="UPLOAD_DIR")
     max_upload_size_mb: int = Field(default=10, alias="MAX_UPLOAD_SIZE_MB")
 
+    resend_api_key: str | None = Field(default=None, alias="RESEND_API_KEY")
+    email_from: str = Field(default="Talent Lens <noreply@localhost>", alias="EMAIL_FROM")
+    smtp_host: str | None = Field(default=None, alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, alias="SMTP_PORT")
+    smtp_username: str | None = Field(default=None, alias="SMTP_USERNAME")
+    smtp_password: str | None = Field(default=None, alias="SMTP_PASSWORD")
+    email_otp_expire_minutes: int = Field(default=10, alias="EMAIL_OTP_EXPIRE_MINUTES")
+    email_link_expire_minutes: int = Field(default=30, alias="EMAIL_LINK_EXPIRE_MINUTES")
+    email_otp_max_attempts: int = Field(default=5, alias="EMAIL_OTP_MAX_ATTEMPTS")
+    email_send_limit: int = Field(default=3, alias="EMAIL_SEND_LIMIT")
+    email_send_window_minutes: int = Field(default=15, alias="EMAIL_SEND_WINDOW_MINUTES")
+
     @field_validator("database_url", mode="before")
     @classmethod
     def async_postgres_url(cls, value: object) -> object:

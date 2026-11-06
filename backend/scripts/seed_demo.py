@@ -617,6 +617,7 @@ async def seed() -> None:
                     company_name=company["name"],
                     is_active=True,
                     is_verified=True,
+                    two_factor_enabled=False,
                 )
                 session.add(user)
                 roles[role.value] = user
@@ -664,6 +665,7 @@ async def seed() -> None:
                 company_name=None,
                 is_active=True,
                 is_verified=True,
+                two_factor_enabled=False,
             )
             session.add(account)
             await session.flush()

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.constants import TokenType, UserRole
 from app.core.security import TokenPayloadError, decode_token
 from app.database.session import get_db_session
+from app.exceptions.errors import AuthorizationError
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 
@@ -57,6 +58,11 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive.",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_verified:
+        raise AuthorizationError(
+            "Verify your email before continuing.",
+            error_code="email_not_verified",
         )
     return user
 
@@ -252,23 +258,28 @@ def get_email_log_repository(session: AsyncSession = Depends(get_db_session)) ->
     return EmailLogRepository(session)
 
 
+def get_email_challenge_repository(
+    session: AsyncSession = Depends(get_db_session),
+) -> "EmailChallengeRepository":
+    from app.repositories.email_challenge_repository import EmailChallengeRepository
+
+    return EmailChallengeRepository(session)
+
+
 def get_auth_service(
     user_repo: UserRepository = Depends(get_user_repository),
     refresh_token_repo: "RefreshTokenRepository" = Depends(get_refresh_token_repository),
+    challenge_repo: "EmailChallengeRepository" = Depends(get_email_challenge_repository),
 ) -> "AuthService":
-    """Provide a request-scoped `AuthService`.
-
-    Args:
-        user_repo: Injected `UserRepository`.
-        refresh_token_repo: Injected `RefreshTokenRepository`.
-
-    Returns:
-        An `AuthService` instance.
-    """
+    """Provide a request-scoped `AuthService`."""
 
     from app.services.auth_service import AuthService
 
-    return AuthService(user_repo=user_repo, refresh_token_repo=refresh_token_repo)
+    return AuthService(
+        user_repo=user_repo,
+        refresh_token_repo=refresh_token_repo,
+        challenge_repo=challenge_repo,
+    )
 
 
 def get_user_service(user_repo: UserRepository = Depends(get_user_repository)) -> "UserService":

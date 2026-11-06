@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Briefcase, FileText, FolderOpen } from "lucide-react";
+import { Briefcase, FileText, FolderOpen, Settings } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/logo";
 import { useAuth } from "@/lib/hooks/use-auth";
@@ -13,6 +13,7 @@ const NAV = [
   { label: "Open jobs", href: "/app", icon: Briefcase },
   { label: "Applications", href: "/app/applications", icon: FolderOpen },
   { label: "Resume", href: "/app/resume", icon: FileText },
+  { label: "Settings", href: "/app/settings", icon: Settings },
 ];
 
 export function CandidateShell({ children }: { children: React.ReactNode }) {

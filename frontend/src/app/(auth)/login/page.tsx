@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/auth/password-input";
 import { authApi } from "@/lib/api/auth";
-import { getApiErrorMessage } from "@/lib/api/client";
+import { getApiErrorCode, getApiErrorMessage } from "@/lib/api/client";
 import { homeForRole } from "@/lib/auth/roles";
 
 const loginSchema = z.object({
@@ -27,6 +27,9 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [challengeId, setChallengeId] = React.useState<string | null>(null);
+  const [pendingEmail, setPendingEmail] = React.useState("");
+  const [otp, setOtp] = React.useState("");
 
   const {
     register,
@@ -34,13 +37,42 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
 
+  async function finishLogin() {
+    const me = await authApi.me();
+    toast.success("Welcome back.");
+    router.push(homeForRole(me.role));
+  }
+
   async function onSubmit(values: LoginFormValues) {
     setIsSubmitting(true);
     try {
-      await authApi.login(values);
-      const me = await authApi.me();
-      toast.success("Welcome back.");
-      router.push(homeForRole(me.role));
+      const result = await authApi.login(values);
+      if (result.requires_2fa && result.challenge_id) {
+        setChallengeId(result.challenge_id);
+        setPendingEmail(values.email);
+        toast.success("We sent a sign-in code to your email.");
+        return;
+      }
+      await finishLogin();
+    } catch (error) {
+      if (getApiErrorCode(error) === "email_not_verified") {
+        toast.error("Verify your email before signing in.");
+        router.push(`/verify-email?email=${encodeURIComponent(values.email)}`);
+        return;
+      }
+      toast.error(getApiErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function onVerify2fa(event: React.FormEvent) {
+    event.preventDefault();
+    if (!challengeId) return;
+    setIsSubmitting(true);
+    try {
+      await authApi.login2fa(challengeId, otp);
+      await finishLogin();
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     } finally {
@@ -57,9 +89,33 @@ export default function LoginPage() {
       <div className="space-y-1.5">
         <p className="label-mono text-muted-foreground">Sign in</p>
         <h2 className="text-2xl font-normal tracking-tight text-heading">Welcome back</h2>
-        <p className="text-sm text-muted-foreground">Continue to your workspace.</p>
+        <p className="text-sm text-muted-foreground">
+          {challengeId ? `Enter the code sent to ${pendingEmail}.` : "Continue to your workspace."}
+        </p>
       </div>
 
+      {challengeId ? (
+      <form onSubmit={(event) => void onVerify2fa(event)} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="otp">Email code</Label>
+          <Input
+            id="otp"
+            inputMode="numeric"
+            maxLength={6}
+            placeholder="123456"
+            value={otp}
+            onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+            required
+          />
+        </div>
+        <Button type="submit" className="w-full" size="lg" isLoading={isSubmitting}>
+          ·· Confirm
+        </Button>
+        <button type="button" className="label-mono w-full text-muted-foreground" onClick={() => setChallengeId(null)}>
+          Use a different account
+        </button>
+      </form>
+      ) : (
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
@@ -82,6 +138,7 @@ export default function LoginPage() {
           ·· Launch
         </Button>
       </form>
+      )}
 
       <p className="text-center text-sm text-muted-foreground">
         Hiring?{" "}

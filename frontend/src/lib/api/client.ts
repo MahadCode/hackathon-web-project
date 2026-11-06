@@ -67,6 +67,14 @@ apiClient.interceptors.response.use(
   async (error: AxiosError<ApiErrorBody>) => {
     const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
+    if (error.response?.status === 403 && error.response.data?.error === "email_not_verified") {
+      tokenStorage.clear();
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/verify-email")) {
+        window.location.href = "/verify-email";
+      }
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
@@ -104,6 +112,13 @@ export function getApiErrorMessage(error: unknown): string {
     return body?.message ?? "Something went wrong. Please try again.";
   }
   return "Something went wrong. Please try again.";
+}
+
+export function getApiErrorCode(error: unknown): string | null {
+  if (axios.isAxiosError<ApiErrorBody>(error)) {
+    return error.response?.data?.error ?? null;
+  }
+  return null;
 }
 
 export { AUTH_CHANGED_EVENT };

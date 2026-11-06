@@ -17,7 +17,9 @@ from app.exceptions.errors import (
     AuthenticationError,
     AuthorizationError,
     ConflictError,
+    EmailDeliveryError,
     NotFoundError,
+    RateLimitError,
     ValidationAppError,
     WorkflowExecutionError,
 )
@@ -30,6 +32,8 @@ _STATUS_BY_ERROR_TYPE: dict[type[AppError], int] = {
     ValidationAppError: status.HTTP_422_UNPROCESSABLE_CONTENT,
     AuthenticationError: status.HTTP_401_UNAUTHORIZED,
     AuthorizationError: status.HTTP_403_FORBIDDEN,
+    RateLimitError: status.HTTP_429_TOO_MANY_REQUESTS,
+    EmailDeliveryError: status.HTTP_503_SERVICE_UNAVAILABLE,
     WorkflowExecutionError: status.HTTP_502_BAD_GATEWAY,
 }
 

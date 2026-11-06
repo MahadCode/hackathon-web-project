@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, EmailStr, Field
+import uuid
+
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from app.core.constants import UserRole
 from app.schemas.user import UserRead
@@ -33,6 +35,16 @@ class TokenPair(BaseModel):
     token_type: str = Field(default="bearer")
 
 
+class LoginResponse(BaseModel):
+    """Login result: tokens, or a 2FA challenge if two-step is enabled."""
+
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_type: str = "bearer"
+    requires_2fa: bool = False
+    challenge_id: uuid.UUID | None = None
+
+
 class RefreshRequest(BaseModel):
     """Request body for `POST /auth/refresh`."""
 
@@ -54,8 +66,16 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     """Request body for `POST /auth/reset-password`."""
 
-    reset_token: str = Field(..., description="Token issued via the forgot-password flow.")
+    reset_token: str | None = Field(default=None, description="Token from the reset email link.")
+    email: EmailStr | None = None
+    code: str | None = Field(default=None, min_length=6, max_length=6)
     new_password: str = Field(..., min_length=8, max_length=128)
+
+    @model_validator(mode="after")
+    def require_token_or_code(self) -> ResetPasswordRequest:
+        if self.reset_token or (self.email and self.code):
+            return self
+        raise ValueError("Provide reset_token or email and code.")
 
 
 class ChangePasswordRequest(BaseModel):
@@ -69,4 +89,43 @@ class RegisterResponse(BaseModel):
     """Response body for `POST /auth/register`."""
 
     user: UserRead
-    tokens: TokenPair
+    verification_required: bool = True
+
+
+class VerifyEmailRequest(BaseModel):
+    """Request body for `POST /auth/verify-email`."""
+
+    token: str | None = None
+    email: EmailStr | None = None
+    code: str | None = Field(default=None, min_length=6, max_length=6)
+
+    @model_validator(mode="after")
+    def require_token_or_code(self) -> VerifyEmailRequest:
+        if self.token or (self.email and self.code):
+            return self
+        raise ValueError("Provide token or email and code.")
+
+
+class ResendVerificationRequest(BaseModel):
+    """Request body for `POST /auth/resend-verification`."""
+
+    email: EmailStr
+
+
+class LoginTwoFactorRequest(BaseModel):
+    """Request body for `POST /auth/login/2fa`."""
+
+    challenge_id: uuid.UUID
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+class TwoFactorCodeRequest(BaseModel):
+    """Request body for confirming enable/disable of two-step verification."""
+
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+class TwoFactorDisableStartRequest(BaseModel):
+    """Request body for starting disable of two-step verification."""
+
+    password: str = Field(..., min_length=1)

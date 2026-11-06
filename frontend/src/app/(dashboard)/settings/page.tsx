@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PasswordInput } from "@/components/auth/password-input";
+import { TwoFactorSettings } from "@/components/auth/two-factor-settings";
 import { useAuth } from "@/lib/hooks/use-auth";
 import { authApi } from "@/lib/api/auth";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -121,7 +122,8 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="security">
+        <TabsContent value="security" className="space-y-4">
+          <TwoFactorSettings />
           <Card>
             <CardHeader>
               <CardTitle>Change password</CardTitle>

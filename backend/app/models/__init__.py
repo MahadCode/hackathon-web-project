@@ -11,6 +11,7 @@ from __future__ import annotations
 from app.models.candidate import Candidate
 from app.models.candidate_note import CandidateNote
 from app.models.candidate_status_event import CandidateStatusEvent
+from app.models.email_challenge import EmailChallenge
 from app.models.email_log import EmailLog
 from app.models.interview import Interview
 from app.models.job import Job
@@ -24,6 +25,7 @@ __all__ = [
     "Candidate",
     "CandidateNote",
     "CandidateStatusEvent",
+    "EmailChallenge",
     "EmailLog",
     "Interview",
     "Job",

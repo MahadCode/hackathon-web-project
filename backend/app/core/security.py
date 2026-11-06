@@ -7,6 +7,9 @@ by both `AuthService` and FastAPI dependencies.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -22,6 +25,35 @@ _pwd_context: CryptContext = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class TokenPayloadError(Exception):
     """Raised when a JWT is invalid, expired, or missing required claims."""
+
+
+def hash_secret_value(value: str) -> str:
+    """HMAC-SHA256 a one-time code or link token with the JWT secret as pepper."""
+
+    settings = get_settings()
+    return hmac.new(
+        settings.jwt_secret_key.encode("utf-8"),
+        value.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def secrets_match(plain_value: str, hashed_value: str) -> bool:
+    """Constant-time compare of a submitted code/token against a stored hash."""
+
+    return hmac.compare_digest(hash_secret_value(plain_value), hashed_value)
+
+
+def generate_otp_code() -> str:
+    """Return a cryptographically random 6-digit code."""
+
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def generate_link_token() -> str:
+    """Return a URL-safe token for verify/reset links."""
+
+    return secrets.token_urlsafe(32)
 
 
 def hash_password(plain_password: str) -> str:

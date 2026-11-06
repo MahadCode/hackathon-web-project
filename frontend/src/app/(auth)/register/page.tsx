@@ -16,7 +16,6 @@ import { PasswordInput } from "@/components/auth/password-input";
 import { PasswordStrength } from "@/components/auth/password-strength";
 import { authApi } from "@/lib/api/auth";
 import { getApiErrorMessage } from "@/lib/api/client";
-import { homeForRole } from "@/lib/auth/roles";
 import type { UserRole } from "@/types/domain";
 
 const STAFF_ROLES: { value: UserRole; label: string }[] = [
@@ -82,9 +81,9 @@ function RegisterForm() {
         role: asCandidate ? ("CANDIDATE" as const) : values.role,
         company_name: asCandidate ? undefined : values.company_name?.trim() || undefined,
       };
-      const { user } = await authApi.register(payload);
-      toast.success("Account created.");
-      router.push(homeForRole(user.role));
+      await authApi.register(payload);
+      toast.success("Check your email to verify your account.");
+      router.push(`/verify-email?email=${encodeURIComponent(payload.email)}`);
     } catch (error) {
       const message = getApiErrorMessage(error);
       setFormError(message);

@@ -18,15 +18,18 @@ class AppError(Exception):
 
     error_code: str = "app_error"
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, error_code: str | None = None) -> None:
         """Initialize the error.
 
         Args:
             message: Human-readable error message.
+            error_code: Optional override for the machine-readable code.
         """
 
         super().__init__(message)
         self.message = message
+        if error_code is not None:
+            self.error_code = error_code
 
 
 class NotFoundError(AppError):
@@ -57,6 +60,18 @@ class AuthorizationError(AppError):
     """Raised when an authenticated user lacks permission for an action."""
 
     error_code = "authorization_error"
+
+
+class RateLimitError(AppError):
+    """Raised when an email/OTP action is attempted too often."""
+
+    error_code = "rate_limited"
+
+
+class EmailDeliveryError(AppError):
+    """Raised when a transactional email cannot be delivered."""
+
+    error_code = "email_delivery_error"
 
 
 class WorkflowExecutionError(AppError):

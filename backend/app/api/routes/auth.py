@@ -11,12 +11,18 @@ from app.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
+    LoginResponse,
+    LoginTwoFactorRequest,
     LogoutRequest,
     RefreshRequest,
     RegisterRequest,
     RegisterResponse,
+    ResendVerificationRequest,
     ResetPasswordRequest,
     TokenPair,
+    TwoFactorCodeRequest,
+    TwoFactorDisableStartRequest,
+    VerifyEmailRequest,
 )
 from app.schemas.common import MessageResponse
 from app.schemas.user import ProfileImageResponse, ProfileUpdate, UserRead
@@ -34,53 +40,41 @@ _ALLOWED_IMAGE_CONTENT_TYPES = {"image/png", "image/jpeg", "image/webp"}
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user",
-    description="Creates a staff or candidate account and returns an initial access/refresh "
-    "token pair. Pass role=CANDIDATE to register as an applicant.",
+    description="Creates a staff or candidate account and emails a verification code. "
+    "The account cannot sign in until the email is verified. Pass role=CANDIDATE to "
+    "register as an applicant.",
     responses={409: {"description": "A user with this email already exists."}},
 )
 async def register(
     payload: RegisterRequest, auth_service: AuthService = Depends(get_auth_service)
 ) -> RegisterResponse:
-    """Register a new user account.
+    """Register a new user account without issuing tokens."""
 
-    Args:
-        payload: Registration details.
-        auth_service: Injected `AuthService`.
-
-    Returns:
-        The created user and an initial token pair.
-    """
-
-    user, tokens = await auth_service.register(
+    user = await auth_service.register(
         full_name=payload.full_name,
         email=payload.email,
         password=payload.password,
         role=payload.role,
         company_name=payload.company_name,
     )
-    return RegisterResponse(user=UserRead.model_validate(user), tokens=tokens)
+    return RegisterResponse(user=UserRead.model_validate(user), verification_required=True)
 
 
 @router.post(
     "/login",
-    response_model=TokenPair,
+    response_model=LoginResponse,
     summary="Log in",
-    description="Authenticates a user by email and password and returns an access/refresh token pair.",
-    responses={401: {"description": "Invalid credentials or inactive account."}},
+    description="Authenticates a user by email and password. Unverified accounts are rejected. "
+    "If two-step verification is on, returns a challenge instead of tokens.",
+    responses={
+        401: {"description": "Invalid credentials or inactive account."},
+        403: {"description": "Email is not verified."},
+    },
 )
-async def login(payload: LoginRequest, auth_service: AuthService = Depends(get_auth_service)) -> TokenPair:
-    """Authenticate a user and issue a token pair.
+async def login(payload: LoginRequest, auth_service: AuthService = Depends(get_auth_service)) -> LoginResponse:
+    """Authenticate a user; may require an email OTP before tokens are issued."""
 
-    Args:
-        payload: Login credentials.
-        auth_service: Injected `AuthService`.
-
-    Returns:
-        A fresh access/refresh token pair.
-    """
-
-    _, tokens = await auth_service.login(email=payload.email, password=payload.password)
-    return tokens
+    return await auth_service.login(email=payload.email, password=payload.password)
 
 
 @router.post(
@@ -156,6 +150,42 @@ async def forgot_password(
 
 
 @router.post(
+    "/verify-email",
+    response_model=MessageResponse,
+    summary="Verify email",
+    description="Confirms an email address with the mailed code or link token.",
+)
+async def verify_email(
+    payload: VerifyEmailRequest, auth_service: AuthService = Depends(get_auth_service)
+) -> MessageResponse:
+    await auth_service.verify_email(token=payload.token, email=payload.email, code=payload.code)
+    return MessageResponse(message="Email verified. You can sign in now.")
+
+
+@router.post(
+    "/resend-verification",
+    response_model=MessageResponse,
+    summary="Resend verification email",
+)
+async def resend_verification(
+    payload: ResendVerificationRequest, auth_service: AuthService = Depends(get_auth_service)
+) -> MessageResponse:
+    await auth_service.resend_verification(payload.email)
+    return MessageResponse(message="If that email needs verification, a new code has been sent.")
+
+
+@router.post(
+    "/login/2fa",
+    response_model=TokenPair,
+    summary="Complete two-step login",
+)
+async def login_2fa(
+    payload: LoginTwoFactorRequest, auth_service: AuthService = Depends(get_auth_service)
+) -> TokenPair:
+    return await auth_service.complete_login_2fa(payload.challenge_id, payload.code)
+
+
+@router.post(
     "/reset-password",
     response_model=MessageResponse,
     summary="Reset password with a reset token",
@@ -175,7 +205,12 @@ async def reset_password(
         A confirmation message.
     """
 
-    await auth_service.reset_password(payload.reset_token, payload.new_password)
+    await auth_service.reset_password(
+        new_password=payload.new_password,
+        reset_token=payload.reset_token,
+        email=payload.email,
+        code=payload.code,
+    )
     return MessageResponse(message="Password has been reset successfully.")
 
 
@@ -205,6 +240,45 @@ async def change_password(
 
     await auth_service.change_password(current_user, payload.current_password, payload.new_password)
     return MessageResponse(message="Password changed successfully.")
+
+
+@router.post("/2fa/enable", response_model=MessageResponse, summary="Start enabling email 2-step")
+async def enable_2fa(
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> MessageResponse:
+    await auth_service.request_two_factor_enable(current_user)
+    return MessageResponse(message="We sent a confirmation code to your email.")
+
+
+@router.post("/2fa/confirm", response_model=UserRead, summary="Confirm enabling email 2-step")
+async def confirm_2fa(
+    payload: TwoFactorCodeRequest,
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> UserRead:
+    await auth_service.confirm_two_factor_enable(current_user, payload.code)
+    return UserRead.model_validate(current_user)
+
+
+@router.post("/2fa/disable", response_model=MessageResponse, summary="Start disabling email 2-step")
+async def disable_2fa(
+    payload: TwoFactorDisableStartRequest,
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> MessageResponse:
+    await auth_service.request_two_factor_disable(current_user, payload.password)
+    return MessageResponse(message="We sent a confirmation code to your email.")
+
+
+@router.post("/2fa/disable/confirm", response_model=UserRead, summary="Confirm disabling email 2-step")
+async def confirm_disable_2fa(
+    payload: TwoFactorCodeRequest,
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> UserRead:
+    await auth_service.confirm_two_factor_disable(current_user, payload.code)
+    return UserRead.model_validate(current_user)
 
 
 @router.get(

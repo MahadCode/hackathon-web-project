@@ -29,6 +29,7 @@ export interface User {
   profile_image: string | null;
   is_active: boolean;
   is_verified: boolean;
+  two_factor_enabled: boolean;
   created_at: string;
   last_login: string | null;
 }
@@ -37,6 +38,19 @@ export interface TokenPair {
   access_token: string;
   refresh_token: string;
   token_type: string;
+}
+
+export interface LoginResult {
+  access_token?: string | null;
+  refresh_token?: string | null;
+  token_type?: string;
+  requires_2fa: boolean;
+  challenge_id?: string | null;
+}
+
+export interface RegisterResult {
+  user: User;
+  verification_required: boolean;
 }
 
 export interface ExtractedRequirements {

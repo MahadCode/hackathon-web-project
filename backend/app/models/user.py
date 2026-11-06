@@ -25,6 +25,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         profile_image: URL or storage path of the user's profile image.
         is_active: Whether the account is active (soft-disable flag).
         is_verified: Whether the user's email has been verified.
+        two_factor_enabled: Whether email two-step verification is required at login.
         last_login: Timestamp of the user's most recent successful login.
     """
 
@@ -42,10 +43,14 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     profile_image: Mapped[str | None] = mapped_column(String(512), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    two_factor_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     jobs: Mapped[list["Job"]] = relationship(back_populates="created_by", cascade="all, delete-orphan")
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    email_challenges: Mapped[list["EmailChallenge"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     applications: Mapped[list["Candidate"]] = relationship(back_populates="user")

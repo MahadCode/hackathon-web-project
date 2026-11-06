@@ -23,6 +23,7 @@ class UserRead(BaseModel):
     profile_image: str | None = None
     is_active: bool
     is_verified: bool
+    two_factor_enabled: bool = False
     created_at: datetime
     last_login: datetime | None = None
 

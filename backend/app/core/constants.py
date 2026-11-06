@@ -27,6 +27,16 @@ class TokenType(str, Enum):
     PASSWORD_RESET = "password_reset"
 
 
+class EmailChallengePurpose(str, Enum):
+    """Why a one-time email code/link was issued."""
+
+    EMAIL_VERIFY = "EMAIL_VERIFY"
+    PASSWORD_RESET = "PASSWORD_RESET"
+    TWO_FACTOR_LOGIN = "TWO_FACTOR_LOGIN"
+    TWO_FACTOR_ENABLE = "TWO_FACTOR_ENABLE"
+    TWO_FACTOR_DISABLE = "TWO_FACTOR_DISABLE"
+
+
 class JobStatus(str, Enum):
     """Lifecycle status of a job posting."""
 
